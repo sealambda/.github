@@ -1,0 +1,26 @@
+name: Check pull request
+description: >-
+  Checks a pull request against the organization's collaboration rules
+  (CONTRIBUTING.md of sealambda/.github): a Conventional Commits title, and
+  every commit curated, single-parent, signed and free of AI co-author
+  trailers. Run it on pull_request events.
+inputs:
+  token:
+    description: A token that can read the pull request's commits.
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    # The title and the body are untrusted input: they reach the script through
+    # the environment, never through expression expansion in `run`.
+    - name: Check the title and every commit
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        COMMITS_URL: repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/commits
+      run: |
+        gh api --paginate "$COMMITS_URL" \
+          --jq '.[] | {sha, parents: (.parents | length), verified: .commit.verification.verified, message: .commit.message}' |
+          "$GITHUB_ACTION_PATH/check-pull-request.sh"
