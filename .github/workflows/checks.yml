@@ -1,0 +1,47 @@
+name: Checks
+
+# The tests and linters of this repository, and its own pull request check.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Tests and linters
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: nixbuild/nix-quick-install-action@9f63be77f412a248c9d9a65a4c82cf066cdf8f0c # v35
+
+      - name: check-pull-request tests
+        run: nix develop -c actions/check-pull-request/test.sh
+
+      - name: shellcheck
+        run: nix develop -c shellcheck actions/check-pull-request/*.sh
+
+      - name: actionlint
+        run: nix develop -c actionlint
+
+      - name: nixfmt
+        run: nix develop -c nixfmt --check flake.nix
+
+  pull-request:
+    name: Pull request title and commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # This repository checks itself with the action at the pull request's head.
+      - uses: ./actions/check-pull-request
