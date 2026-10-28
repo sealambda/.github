@@ -72,6 +72,7 @@
           name = "toolchain";
           packages = lib.attrValues (packagesFor pkgs.stdenv.hostPlatform.system);
         };
+
     in
     {
       # The toolchain's tools, and the pnpm-only lint
@@ -121,6 +122,7 @@
           devShell = devShellFor pkgs;
           elixirModule = self.lib.treefmtModules.elixir;
         }
+        // import ./lints/checks.nix pkgs
       );
     };
 }

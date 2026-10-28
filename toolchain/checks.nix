@@ -50,6 +50,18 @@ let
     imports = [ elixirModule ];
     projectRootFile = ".formatter.exs";
   };
+
+  # The reasons why the `pnpm` package does not keep what a consumer of
+  # nixpkgs' `pnpm_12` relies on; empty when it does. The package must carry
+  # exactly the `passthru` attributes of `pnpm_12`, and it must build locally
+  # (it only links, so no remote builder should run it).
+  pnpmProblems =
+    lib.optional (
+      lib.attrNames toolchain.pnpm.passthru != lib.attrNames pkgs.pnpm_12.passthru
+    ) "the pnpm package does not have the passthru attributes of pnpm_12"
+    ++ lib.optional (
+      !(toolchain.pnpm.preferLocalBuild or false)
+    ) "the pnpm package is not built locally";
 in
 {
   # Every tool is inside its series of versions.nix, and the version line is
@@ -78,6 +90,25 @@ in
   # The PATH check finds a forbidden command however a shell gets it
   # (tests/dev-shell-path.nix).
   dev-shell-path-cases = import ./tests/dev-shell-path.nix { inherit pkgs devShellPathCheck; };
+
+  # Hex is part of the development shell. The check runs `mix hex.info` with
+  # the programs of the shell and an empty MIX_HOME: without Hex in the shell,
+  # Mix cannot find the task `hex.info` and would try to download Hex, which
+  # the build sandbox forbids.
+  hex = check "hex-in-dev-shell" devShell.nativeBuildInputs ''
+    export HOME="$TMPDIR"
+    export MIX_HOME="$TMPDIR/mix"
+    mix hex.info
+  '';
+
+  # The `pnpm` package keeps the `passthru` of `pnpm_12` and builds locally
+  # (`pnpmProblems`).
+  pnpm-package = check "pnpm-package" [ ] (
+    lib.optionalString (pnpmProblems != [ ]) ''
+      printf '%s\n' ${lib.escapeShellArgs pnpmProblems} >&2
+      exit 1
+    ''
+  );
 
   # The Elixir module formats with the toolchain's Elixir: it rewrites
   # input.ex into expected.ex.

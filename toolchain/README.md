@@ -22,17 +22,17 @@ so that the toolchain's lock file is the only pin of nixpkgs:
 
 ## Outputs
 
-| Output                             | What it is                                                                                                                       |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `packages.<system>.<tool>`         | `nodejs`, `pnpm`, `erlang`, `elixir`, `hex`, `postgresql`, `opentofu`, `cosign` ([packages.nix](packages.nix))                   |
-| `packages.<system>.pnpm-only-lint` | The pnpm-only lint ([pnpm-only-lint.sh](pnpm-only-lint.sh)). Run it with `nix run …#pnpm-only-lint -- <directory>`.              |
-| `devShells.<system>.default`       | A shell with every tool of `packages`. Add it to a shell with `inputsFrom`.                                                      |
-| `lib.systems`                      | The supported systems: `aarch64-darwin`, `aarch64-linux` and `x86_64-linux`. Use it for the `systems` of your own flake.         |
-| `lib.versions`                     | The version line: the exact version of each tool, as built for x86_64-linux. Read it with `nix eval --json …#lib.versions`.      |
-| `lib.treefmtModules.default`       | The organization's formatters and linters, as a treefmt-nix module ([treefmt.nix](treefmt.nix)).                                 |
-| `lib.treefmtModules.elixir`        | `mix format` with the toolchain's Elixir ([treefmt-elixir.nix](treefmt-elixir.nix)).                                             |
-| `lib.devShellPathCheck pkgs shell` | A check that fails when `shell` provides a command of [package-managers.nix](package-managers.nix) on its build PATH. See below. |
-| `checks.<system>`                  | `version-line`, `version-policy`, `pnpm-only-lint`, `dev-shell-path`, `dev-shell-path-cases` and `mix-format`.                   |
+| Output                             | What it is                                                                                                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages.<system>.<tool>`         | `nodejs`, `pnpm`, `erlang`, `elixir`, `hex`, `postgresql`, `opentofu`, `cosign` ([packages.nix](packages.nix))                                                                  |
+| `packages.<system>.pnpm-only-lint` | The pnpm-only lint ([pnpm-only-lint.sh](pnpm-only-lint.sh)). Run it with `nix run …#pnpm-only-lint -- <directory>`.                                                             |
+| `devShells.<system>.default`       | A shell with every tool of `packages`. Add it to a shell with `inputsFrom`.                                                                                                     |
+| `lib.systems`                      | The supported systems: `aarch64-darwin`, `aarch64-linux` and `x86_64-linux`. Use it for the `systems` of your own flake.                                                        |
+| `lib.versions`                     | The version line: the exact version of each tool, as built for x86_64-linux. Read it with `nix eval --json …#lib.versions`.                                                     |
+| `lib.treefmtModules.default`       | The organization's formatters and linters, as a treefmt-nix module ([treefmt.nix](treefmt.nix)).                                                                                |
+| `lib.treefmtModules.elixir`        | `mix format` with the toolchain's Elixir ([treefmt-elixir.nix](treefmt-elixir.nix)).                                                                                            |
+| `lib.devShellPathCheck pkgs shell` | A check that fails when `shell` provides a command of [package-managers.nix](package-managers.nix) on its build PATH. See below.                                                |
+| `checks.<system>`                  | `version-line`, `version-policy`, `pnpm-only-lint`, `dev-shell-path`, `dev-shell-path-cases`, `mix-format`, `hex`, `pnpm-package`, `bash-strict-mode` and `shell-script-names`. |
 
 `lib` holds the treefmt modules because Nix warns about an unknown flake
 output name such as `treefmtModules`.
