@@ -22,8 +22,8 @@ blocks a push or a merge. Everyone follows the rules by hand.
 
 ## 2. Environment
 
-- Each repository provides one development shell: `nix develop`. CI uses the
-  same shell.
+- Each repository provides one development shell: `nix develop`. CI runs the
+  same tools from the same lock files, and checks the PATH of the shell.
 - With direnv, an `.envrc` file with `use flake` loads the shell when you
   enter the directory.
 - A repository lists its check commands in its `AGENTS.md`.
