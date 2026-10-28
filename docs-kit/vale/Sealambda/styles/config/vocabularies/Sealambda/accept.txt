@@ -1,0 +1,38 @@
+Anthropic
+API
+CI
+CLI
+Claude Code
+Conventional Commits
+CPU
+CSS
+CSV
+Dependabot
+Diátaxis
+DNS
+EditorConfig
+Erlang
+FAQ
+GitHub
+GitHub Actions
+HTML
+HTTP
+HTTPS
+JSON
+JWT
+MADR
+MFA
+OIDC
+OpenTofu
+pnpm
+PostgreSQL
+ShellCheck
+SSO
+TLS
+TOML
+UI
+URL
+UTC
+UUID
+VM
+YAML

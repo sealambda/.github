@@ -1,0 +1,24 @@
+# Cases for CurrentState.yml. Run them with `vale test` (docs-kit/README.md).
+- name: flags the words of the Google rule and the added words
+  rule: CurrentState.yml
+  input: |
+    The tool currently works. A fix comes soon. Keep it for now.
+    Support arrives in the future. At the moment it is off. TODO: write this.
+  contains:
+    - "'currently' ties the text to a moment"
+    - "'soon' ties the text to a moment"
+    - "'for now' ties the text to a moment"
+    - "'in the future' ties the text to a moment"
+    - "'At the moment' ties the text to a moment"
+    - "'TODO' ties the text to a moment"
+
+- name: latest is allowed
+  about: The rule removes "latest" from the Google word list.
+  rule: CurrentState.yml
+  input: Restore the latest backup.
+  want: ""
+
+- name: code is not prose
+  rule: CurrentState.yml
+  input: Run `todo --now`.
+  want: ""

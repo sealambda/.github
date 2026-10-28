@@ -1,0 +1,41 @@
+# A heading uses sentence case: the first word and the proper nouns start with
+# a capital letter. The proper nouns are the words of the vocabulary
+# (config/vocabularies/Sealambda/accept.txt) and the exceptions of the Google
+# rule Headings, which this rule extends.
+#
+# The added exceptions are:
+#   - The section headings that MADR 4.0.0 fixes in a decision record. They are
+#     in title case in the template, and a record keeps them as they are.
+#   - The product names Git, Nix and NixOS, and the acronyms CA, CD, GPG, ID,
+#     IP, OS and SSH. They are not in the vocabulary, because the vocabulary
+#     also fixes the case of a word in the text, and "git", "nix", "ssh", "cd",
+#     "gpg", "id", "ip" or "os" is a command, a plain word, or part of a name
+#     such as "sops-nix".
+#   - The product names Elixir, Markdown, Prettier and Vale. They are not in the
+#     vocabulary either, because "elixir", "markdown", "prettier" and "vale"
+#     are plain words in lower case.
+# Tests: Headings.test.yml.
+extends: Google.Headings
+link: https://developers.google.com/style/capitalization#capitalization-in-titles-and-headings
+level: error
+exceptions+:
+  - Context and Problem Statement
+  - Decision Drivers
+  - Considered Options
+  - Decision Outcome
+  - Pros and Cons of the Options
+  - More Information
+  - Git
+  - Nix
+  - NixOS
+  - CA
+  - CD
+  - GPG
+  - ID
+  - IP
+  - OS
+  - SSH
+  - Elixir
+  - Markdown
+  - Prettier
+  - Vale

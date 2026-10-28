@@ -1,0 +1,20 @@
+# Weak intensifiers add emphasis and no fact: "very easy", "really works".
+# Microsoft.Adverbs does not replace this rule. It lists "easily", "really"
+# and "very", and about 250 other adverbs, but not "actually" and "easy".
+#
+# The level is suggestion, because these words have a true use: a quotation,
+# a contrast ("not actually deleted") or a term such as "very-large-scale".
+# They show in an editor and never fail a check. Filler.yml holds the words
+# that have no true use, at level error.
+# Tests: Intensifiers.test.yml.
+extends: existence
+message: "Consider deleting the intensifier '%s'. It adds no fact."
+link: https://github.com/sealambda/.github/blob/main/docs-kit/README.md#house-rules
+level: suggestion
+ignorecase: true
+tokens:
+  - actually
+  - easy
+  - easily
+  - really
+  - very

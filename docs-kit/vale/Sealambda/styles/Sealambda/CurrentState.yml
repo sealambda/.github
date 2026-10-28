@@ -1,0 +1,23 @@
+# A page describes what exists now, not history and not plans (CONTRIBUTING.md,
+# "Docs and decisions"). Plans are issues, and history is Git.
+#
+# This rule extends the Google rule Timeless, which flags "currently", "latest"
+# and "soon", and adds the words that mark a plan or a gap. "latest" is
+# removed: in "restore the latest backup" it names the newest item of a
+# sequence, so it is a frequent false match. A true use of a listed word needs
+# a Vale comment around the passage, and a reason before it:
+#   <!-- vale Sealambda.CurrentState = NO -->
+#   <!-- vale Sealambda.CurrentState = YES -->
+# Tests: CurrentState.test.yml.
+extends: Google.Timeless
+message: "'%s' ties the text to a moment. Describe what is true today. A plan is an issue."
+link: https://developers.google.com/style/timeless-documentation
+level: error
+tokens-:
+  - latest
+tokens+:
+  - at the moment
+  - for now
+  - in the future
+  - FIXME
+  - TODO

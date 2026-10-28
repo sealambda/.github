@@ -1,0 +1,22 @@
+# Cases for Intensifiers.yml. Run them with `vale test` (docs-kit/README.md).
+- name: flags every intensifier
+  rule: Intensifiers.yml
+  input: |
+    The step is easy, and easily done. It actually works. It is really very good.
+  contains:
+    - "Consider deleting the intensifier 'easy'"
+    - "Consider deleting the intensifier 'easily'"
+    - "Consider deleting the intensifier 'actually'"
+    - "Consider deleting the intensifier 'really'"
+    - "Consider deleting the intensifier 'very'"
+
+- name: a word that only contains an intensifier passes
+  about: The match respects word boundaries.
+  rule: Intensifiers.yml
+  input: The uneasy reader checks the realty list.
+  want: ""
+
+- name: code is not prose
+  rule: Intensifiers.yml
+  input: Run `very-easy` to build.
+  want: ""

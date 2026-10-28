@@ -1,0 +1,16 @@
+# Cases for SentenceLength.yml. Run them with `vale test` (docs-kit/README.md).
+- name: flags a sentence of 26 words
+  rule: SentenceLength.yml
+  input: >-
+    One two three four five six seven eight nine ten eleven twelve thirteen
+    fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one
+    twenty-two twenty-three twenty-four twenty-five twenty-six.
+  contains: "This sentence has 26"
+
+- name: accepts a sentence of 25 words
+  rule: SentenceLength.yml
+  input: >-
+    One two three four five six seven eight nine ten eleven twelve thirteen
+    fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one
+    twenty-two twenty-three twenty-four twenty-five.
+  want: ""

@@ -1,0 +1,28 @@
+# Cases for Filler.yml. Run them with `vale test` (docs-kit/README.md).
+- name: flags every filler word
+  rule: Filler.yml
+  input: |
+    Simply run it. Just run it. Obviously, of course, this is basically fine.
+  contains:
+    - "Delete the filler word 'Simply'"
+    - "Delete the filler word 'Just'"
+    - "Delete the filler word 'Obviously'"
+    - "Delete the filler word 'of course'"
+    - "Delete the filler word 'basically'"
+
+- name: a weak intensifier is not filler
+  about: The words of Intensifiers.yml are a suggestion, not an error.
+  rule: Filler.yml
+  input: It is really very easy, and it actually works. It is easily done.
+  want: ""
+
+- name: a hyphenated term is not filler
+  about: The term just-in-time is not filler.
+  rule: Filler.yml
+  input: A just-in-time build starts on demand.
+  want: ""
+
+- name: code is not prose
+  rule: Filler.yml
+  input: Run `just build` to build.
+  want: ""

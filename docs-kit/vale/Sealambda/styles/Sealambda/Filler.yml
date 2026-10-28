@@ -1,0 +1,24 @@
+# No filler words. They add no fact, and "simply" or "easy" tells a reader who
+# struggles that the task is simple. This is the Simplified Technical English
+# rule "avoid filler": say what the reader must do, nothing more.
+#
+# This rule lists only words that have no use in a technical document, so it
+# is an error. The weak intensifiers ("really", "very", "actually", "easy"),
+# which have a true use in a quotation or a contrast, are in Intensifiers.yml
+# at level suggestion.
+#
+# The match ignores case and respects word boundaries. Code is not checked.
+# "just-in-time" is a term, not filler, so "just" must not be followed by a
+# hyphen. "Note that" is not listed: it introduces a fact that a warning needs.
+# Tests: Filler.test.yml.
+extends: existence
+message: "Delete the filler word '%s'."
+link: https://github.com/sealambda/.github/blob/main/docs-kit/README.md#house-rules
+level: error
+ignorecase: true
+tokens:
+  - simply
+  - just(?!-)
+  - obviously
+  - of course
+  - basically
