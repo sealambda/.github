@@ -190,6 +190,9 @@
             root = self;
           };
         }
+        # The cases of the repository's own lints (lints/checks.nix): each lint
+        # runs on small trees with hand-written expected results.
+        // lib.mapAttrs' (name: lib.nameValuePair "lints-${name}") (import ./lints/checks.nix pkgs)
         # The subflakes' own checks; a root check does not run them otherwise.
         // lib.mapAttrs' (name: lib.nameValuePair "toolchain-${name}") toolchain.checks.${system}
         # The kit has no check of its own documents: they link to pages outside
