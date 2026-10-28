@@ -99,6 +99,11 @@
             nativeBuildInputs = [ docs-kit.packages.${system}.docs-check ];
           } ''docs-check --template 'docs-kit/templates/*' ${self} && touch "$out"'';
 
+          # The decision records of docs/decisions and their ledger agree: a
+          # record in the tree is in force, a number is used once, and a
+          # replaced record names an existing successor.
+          decisions = docs-kit.lib.mkDecisionsCheck pkgs ./docs/decisions;
+
           # The repository uses pnpm only. The lint reads the files that Git
           # tracks, and a flake's source has no .git: the build copies the
           # source into a new repository and tracks every file in it.
