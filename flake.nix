@@ -139,6 +139,31 @@
             inherit pkgs;
             script = ./scripts/check.sh;
           };
+
+          # The CI step that looks the package managers up in the real
+          # development shell ignores the PATH of the host, and fails when it
+          # cannot get the list of commands or the PATH.
+          ci-dev-shell-path-step = import ./nix/ci-dev-shell-path-step-tests.nix {
+            inherit pkgs;
+            workflow = ./.github/workflows/ci.yml;
+            stepName = "Check that the development shell has no other package manager";
+          };
+
+          # The job token stays off the disk and out of every step except the
+          # one that fetches the flake inputs.
+          ci-nix-token = import ./nix/ci-nix-token-tests.nix {
+            inherit pkgs;
+            workflow = ./.github/workflows/ci.yml;
+          };
+
+          # The `ci` status keeps its structure: the concurrency groups, the
+          # three-system matrix that does not stop at the first failure, and
+          # an aggregator that runs always and fails on any result but
+          # success or skipped.
+          ci-structure = import ./nix/ci-structure-tests.nix {
+            inherit pkgs;
+            workflow = ./.github/workflows/ci.yml;
+          };
         }
         # The toolchain's own checks; a root check does not run them otherwise.
         // lib.mapAttrs' (name: lib.nameValuePair "toolchain-${name}") toolchain.checks.${system}

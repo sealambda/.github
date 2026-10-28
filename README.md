@@ -30,8 +30,10 @@ checks. Neither command writes a lock file, so a stale lock fails the gate.
 CI runs the script on each pull request, on Linux (x86_64 and arm64) and on
 macOS (arm64), because the toolchain's `version-line` check compares the
 versions of the system that runs it (`.github/workflows/ci.yml`). Its job
-`ci` is the one status to require in a ruleset. Run
-`git rebase -x scripts/check.sh <base>` to check each commit of a series.
+`ci` is the one status to require in a ruleset. Each CI job also opens
+`nix develop` once and checks that its PATH holds no package manager other
+than pnpm. Run `git rebase -x scripts/check.sh <base>` to check each commit
+of a series.
 
 - `nix develop` opens a shell with the same tools, and installs the Git hook
   of `lefthook.yml`: pre-commit runs
