@@ -1,4 +1,4 @@
-# sealambda/.github
+# `sealambda/.github`
 
 The default community health files of the organization.
 
@@ -25,7 +25,7 @@ in `nix.conf`).
 `scripts/check.sh` is the gate. It checks that the lock file of each flake
 below the root matches its `flake.nix`, then runs `nix flake check`, which
 runs every check of this repository: the formatters and linters of the
-toolchain, the pnpm-only lint, the lock-file checks and the toolchain's own
+toolchain, the pnpm-only lint, the lock file checks and the toolchain's own
 checks. Neither command writes a lock file, so a stale lock fails the gate.
 CI runs the script on each pull request, on Linux (x86_64 and arm64) and on
 macOS (arm64), because the toolchain's `version-line` check compares the
@@ -51,12 +51,14 @@ from the toolchain's outputs. It takes the toolchain from `path:./toolchain`;
 another repository takes a tag, as the
 [toolchain README](toolchain/README.md) shows. The repository also needs the
 `.editorconfig` of this repository as a start: shfmt, Prettier and
-editorconfig-checker read it.
+`editorconfig-checker` read it.
 
 ### Change the toolchain
 
-After `nix flake update` in `toolchain/`, run `nix flake update toolchain` at
-the root. The root lock copies `toolchain/flake.lock` only when it is created
-or when that command runs, so the two locks drift apart otherwise. The check
-`toolchain-lock-sync` fails until they agree. A tool that updates the locks
-automatically must update both in one change.
+After `nix flake update` in `toolchain/`, update the locks above it from the
+bottom up: run `nix flake update toolchain` in `docs-kit/`, then
+`nix flake update toolchain docs-kit` at the root. A lock copies the lock of
+the subflake below it only when it is created or when that command runs, so
+the locks drift apart otherwise. The check `lock-sync` fails until the three
+locks agree. A tool that updates the locks automatically must update all
+three in one change.
