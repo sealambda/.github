@@ -648,6 +648,279 @@ let
         diff -u wanted actual
         touch "$out"
       '';
+
+  # A directory of files in the Nix store.
+  # Arguments: the name of the directory, and an attribute set from the file
+  # name to the text of the file.
+  directory =
+    name: files:
+    pkgs.linkFarm name (
+      lib.mapAttrsToList (path: text: {
+        name = path;
+        path = pkgs.writeText (baseNameOf path) text;
+      }) files
+    );
+
+  # A commit SHA of 40 hexadecimal characters, written out by hand.
+  commit = "0123456789abcdef0123456789abcdef01234567";
+
+  # A decision record with the given status in its front matter.
+  record = status: ''
+    ---
+    status: "${status}"
+    ---
+
+    # A decision
+  '';
+
+  # A row of the ledger of decision records. The permalink is a Markdown link.
+  # Arguments: an attribute set with `number`, `status`, and optionally
+  # `replaced` ("none" by default) and `sha` (a full commit SHA by default).
+  ledgerRow =
+    {
+      number,
+      status,
+      replaced ? "none",
+      sha ? commit,
+    }:
+    "| ${number} | A decision | ${status} | ${replaced} | The reason. | [permalink](https://github.com/example-org/example-repo/blob/${sha}/docs/decisions/${number}-a-decision.md) |\n";
+
+  # The ledger file: the table header and the given rows.
+  ledger = rows: ''
+    # Decisions
+
+    | Number | Title | Status | Replaced by | Reason | Permalink |
+    | ------ | ----- | ------ | ----------- | ------ | --------- |
+    ${lib.concatStrings rows}'';
+
+  # The cases of the `decisions-ledger` program. Each case is a directory of
+  # records and a ledger, the exit status that the program must return, and a
+  # text that its message must hold. The expected values are written out by
+  # hand and do not come from the program.
+  ledgerCases = [
+    {
+      name = "valid tree and ledger";
+      files = {
+        "0001-first.md" = record "accepted";
+        "0002-second.md" = record "proposed";
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0003";
+            status = "rejected";
+          })
+          (ledgerRow {
+            number = "0004";
+            status = "superseded";
+            replaced = "0001";
+          })
+          (ledgerRow {
+            number = "0005";
+            status = "deprecated";
+            replaced = "0002";
+          })
+          (ledgerRow {
+            number = "0006";
+            status = "superseded";
+            replaced = "0004";
+          })
+        ];
+      };
+      exit = 0;
+    }
+    {
+      name = "a record in the tree is superseded";
+      files = {
+        "0001-first.md" = record "superseded";
+        "README.md" = ledger [ ];
+      };
+      exit = 1;
+      message = "is not proposed or accepted";
+    }
+    {
+      name = "a record has no status";
+      files = {
+        "0001-first.md" = "# A decision\n";
+        "README.md" = ledger [ ];
+      };
+      exit = 1;
+      message = "is not proposed or accepted";
+    }
+    {
+      name = "a record has no number in its name";
+      files = {
+        "decision.md" = record "accepted";
+        "README.md" = ledger [ ];
+      };
+      exit = 1;
+      message = "NNNN-title.md";
+    }
+    {
+      name = "a number is in the tree and in the ledger";
+      files = {
+        "0001-first.md" = record "accepted";
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "rejected";
+          })
+        ];
+      };
+      exit = 1;
+      message = "used more than once";
+    }
+    {
+      name = "two records in the tree have the same number";
+      files = {
+        "0001-first.md" = record "accepted";
+        "0001-second.md" = record "proposed";
+        "README.md" = ledger [ ];
+      };
+      exit = 1;
+      message = "the number 0001 is also used by";
+    }
+    {
+      name = "a record is replaced by itself";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "superseded";
+            replaced = "0001";
+          })
+        ];
+      };
+      exit = 1;
+      message = "a record cannot replace itself";
+    }
+    {
+      name = "the replaced by cell is empty";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "deprecated";
+            replaced = "";
+          })
+        ];
+      };
+      exit = 1;
+      message = "'replaced by' needs a number or 'none'";
+    }
+    {
+      name = "a number is twice in the ledger";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "rejected";
+          })
+          (ledgerRow {
+            number = "0001";
+            status = "deprecated";
+          })
+        ];
+      };
+      exit = 1;
+      message = "used more than once";
+    }
+    {
+      name = "the final status is not in the set";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "accepted";
+          })
+        ];
+      };
+      exit = 1;
+      message = "is not rejected, deprecated or superseded";
+    }
+    {
+      name = "a superseded record has no replacement";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "superseded";
+          })
+        ];
+      };
+      exit = 1;
+      message = "needs the number of its replacement";
+    }
+    {
+      name = "the replacement does not exist";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "superseded";
+            replaced = "0099";
+          })
+        ];
+      };
+      exit = 1;
+      message = "does not resolve";
+    }
+    {
+      name = "the permalink has a short SHA";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "rejected";
+            sha = "0123456";
+          })
+        ];
+      };
+      exit = 1;
+      message = "40-character commit SHA";
+    }
+    {
+      name = "the permalink names a branch";
+      files = {
+        "README.md" = ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "rejected";
+            sha = "main";
+          })
+        ];
+      };
+      exit = 1;
+      message = "40-character commit SHA";
+    }
+    {
+      name = "there is no ledger";
+      files = {
+        "0001-first.md" = record "accepted";
+      };
+      exit = 2;
+      message = "is missing";
+    }
+  ];
+
+  # The shell that runs one case of `ledgerCases`. It records a failure in
+  # `failed` and goes on, so that one run shows every wrong case.
+  runLedgerCase =
+    case:
+    ''
+      status=0
+      decisions-ledger ${directory "decisions" case.files} 2> stderr || status=$?
+      if [ "$status" -ne ${toString case.exit} ]; then
+        echo "${case.name}: exit status $status, expected ${toString case.exit}" >&2
+        cat stderr >&2
+        failed=1
+      fi
+    ''
+    + lib.optionalString (case ? message) ''
+      if ! grep -qF -- ${lib.escapeShellArg case.message} stderr; then
+        echo "${case.name}: the message lacks '${case.message}'" >&2
+        cat stderr >&2
+        failed=1
+      fi
+    '';
 in
 {
   # The cases of every rule of the Sealambda style (`*.test.yml`). `--coverage`
@@ -754,4 +1027,14 @@ in
       )
     )
   );
+
+  # The cases of the `decisions-ledger` program (`ledgerCases`).
+  decisions-ledger =
+    pkgs.runCommandLocal "decisions-ledger" { nativeBuildInputs = [ kit.decisionsLedger ]; }
+      ''
+        failed=0
+        ${lib.concatMapStrings runLedgerCase ledgerCases}
+        test "$failed" -eq 0
+        touch "$out"
+      '';
 }

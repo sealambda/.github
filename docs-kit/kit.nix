@@ -14,6 +14,8 @@
 #                 style, joined in one directory;
 #   valeConfig    the Vale configuration of the kit (see below);
 #   docsCheck     the `docs-check` program (docs-check.sh);
+#   decisionsLedger
+#                 the `decisions-ledger` program (decisions-ledger.sh);
 #   valePackage   the Vale package, `Sealambda.zip`, for a release.
 { pkgs }:
 let
@@ -159,6 +161,13 @@ let
     text = builtins.readFile ./docs-check.sh;
   };
 
+  # The `decisions-ledger` program (decisions-ledger.sh).
+  decisionsLedger = pkgs.writeShellApplication {
+    name = "decisions-ledger";
+    runtimeInputs = [ pkgs.gawk ];
+    text = builtins.readFile ./decisions-ledger.sh;
+  };
+
   # `Sealambda.zip`: one folder, Sealambda, with the package configuration
   # (with the Packages line added) and the styles. A consumer does not need the
   # `*.test.yml` files, so they stay out. The archive is reproducible: the file
@@ -181,6 +190,7 @@ let
 in
 {
   inherit
+    decisionsLedger
     docsCheck
     githubTemplatePatterns
     markdownlint

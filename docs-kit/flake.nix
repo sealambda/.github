@@ -45,6 +45,14 @@
         pkgs.runCommandLocal "docs-check" {
           nativeBuildInputs = [ self.packages.${pkgs.stdenv.hostPlatform.system}.docs-check ];
         } ''docs-check ${src} && touch "$out"'';
+
+      # Runs `decisions-ledger` on `src`, the directory of the decision records
+      # and their ledger (README.md), in the build sandbox.
+      mkDecisionsCheck =
+        pkgs: src:
+        pkgs.runCommandLocal "decisions-ledger" {
+          nativeBuildInputs = [ self.packages.${pkgs.stdenv.hostPlatform.system}.decisions-ledger ];
+        } ''decisions-ledger ${src} && touch "$out"'';
     in
     {
       packages = eachSystem (
@@ -55,6 +63,8 @@
         {
           docs-check = kit.docsCheck;
           default = kit.docsCheck;
+          # Checks the decision records of a directory and their ledger.
+          decisions-ledger = kit.decisionsLedger;
           # `Sealambda.zip`, the Vale package, for a release.
           vale-package = kit.valePackage;
         }
@@ -75,6 +85,10 @@
         # Builds a check that runs the docs check on a store path:
         # `docs-kit.lib.mkCheck pkgs ./.`.
         inherit mkCheck;
+
+        # Builds a check that runs the decision-record check on a store path:
+        # `docs-kit.lib.mkDecisionsCheck pkgs ./docs/decisions`.
+        inherit mkDecisionsCheck;
 
         # The treefmt-nix module with markdownlint-cli2 and the base.
         treefmtModules.default = ./treefmt.nix;
