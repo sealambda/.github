@@ -117,15 +117,15 @@ Assisted-by: Claude Code (claude-opus-5-5)
 Checks run at five moments. A check at an earlier moment is faster and
 narrower.
 
-| When | What runs | Where | Rule |
-|---|---|---|---|
-| `git commit` | formatters (auto-fix) and fast linters, on staged files only | a local hook that the development shell installs | Seconds. No tests. Never `--no-verify`. |
-| `git push` | nothing | none | Pushes and drafts are cheap. |
-| A pull request opens, reopens or becomes ready, or a push to a ready pull request | The full gate, as parallel jobs | a repo's gate workflow, on `pull_request`; drafts skipped; concurrency cancels older runs per pull request | This check is the merge decision. Aim for at most 10 minutes per job. |
-| A pull request that touches infrastructure code | The infrastructure plan, with a summary in the job summary | a repo that applies infrastructure plans on pull requests, with path filters | The plan is the review. |
-| A push to `main` | The gate, then the apply or the deploy | the repo's workflow for `main`, which calls the gate | A red `main` is fixed first. |
-| A schedule | A drift plan | the repo's scheduled workflow | A failed run alerts its cron editor (see below). |
-| Weekly | Dependency updates | see section 10 | Review them like any pull request. A pull request that deploys lands alone. |
+| When                                                                              | What runs                                                    | Where                                                                                                      | Rule                                                                        |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `git commit`                                                                      | formatters (auto-fix) and fast linters, on staged files only | a local hook that the development shell installs                                                           | Seconds. No tests. Never `--no-verify`.                                     |
+| `git push`                                                                        | nothing                                                      | none                                                                                                       | Pushes and drafts are cheap.                                                |
+| A pull request opens, reopens or becomes ready, or a push to a ready pull request | The full gate, as parallel jobs                              | a repo's gate workflow, on `pull_request`; drafts skipped; concurrency cancels older runs per pull request | This check is the merge decision. Aim for at most 10 minutes per job.       |
+| A pull request that touches infrastructure code                                   | The infrastructure plan, with a summary in the job summary   | a repo that applies infrastructure plans on pull requests, with path filters                               | The plan is the review.                                                     |
+| A push to `main`                                                                  | The gate, then the apply or the deploy                       | the repo's workflow for `main`, which calls the gate                                                       | A red `main` is fixed first.                                                |
+| A schedule                                                                        | A drift plan                                                 | the repo's scheduled workflow                                                                              | A failed run alerts its cron editor (see below).                            |
+| Weekly                                                                            | Dependency updates                                           | see section 10                                                                                             | Review them like any pull request. A pull request that deploys lands alone. |
 
 Two GitHub behaviors shape these rules:
 
