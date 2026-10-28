@@ -12,6 +12,8 @@
 let
   inherit (pkgs) lib;
 
+  # The rules of the Sealambda style and their tests (`*.test.yml`), as a path
+  # in the Nix store.
   styleSource = ./vale/Sealambda/styles/Sealambda;
 
   # One fixture of the `docs-check-fixtures` check: a derivation that builds a
@@ -892,6 +894,20 @@ let
       message = "40-character commit SHA";
     }
     {
+      # `read` returns a failure status on a last line without a newline.
+      name = "the last row has no final newline";
+      files = {
+        "README.md" = lib.removeSuffix "\n" (ledger [
+          (ledgerRow {
+            number = "0001";
+            status = "superseded";
+          })
+        ]);
+      };
+      exit = 1;
+      message = "needs the number of its replacement";
+    }
+    {
       name = "there is no ledger";
       files = {
         "0001-first.md" = record "accepted";
@@ -980,6 +996,33 @@ in
           exit 1
         fi
         grep -q "Use 'GitHub' instead of 'github'" alerts
+        touch "$out"
+      '';
+
+  # A weak intensifier is a suggestion and never fails the gate: the words
+  # have a true use, such as a quotation or a contrast. The rule tests
+  # cannot pin this, because `vale test` shows an alert of any level. The check
+  # lints a text with the intensifiers at the level of the gate (error), which
+  # must pass, and then at level suggestion, where the rule must report them, so
+  # that the first run cannot pass because the rule is off.
+  vale-intensifiers-level =
+    pkgs.runCommandLocal "vale-intensifiers-level"
+      {
+        nativeBuildInputs = [ pkgs.vale ];
+        text = ''
+          The step is very easy, and it actually works really well.
+        '';
+        passAsFile = [ "text" ];
+      }
+      ''
+        cp "$textPath" intensifiers.md
+        lint() {
+          vale --no-global --config ${kit.valeConfig} --minAlertLevel="$1" --output=line intensifiers.md
+        }
+
+        lint error
+        lint suggestion > alerts
+        grep -q 'Sealambda.Intensifiers' alerts
         touch "$out"
       '';
 

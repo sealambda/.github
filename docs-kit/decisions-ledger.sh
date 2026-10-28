@@ -164,10 +164,13 @@ check_ledger_row() {
 #   The ledger path.
 #######################################
 scan_ledger() {
-  local first number status replaced link
-  # The cells of a row are separated by `|`. The text before the first `|` is
-  # empty, and the title and the reason (the 2nd and 5th cells) are not read.
-  while IFS='|' read -r first number _ status replaced _ link _; do
+  local line first number status replaced link
+  # `read` returns a failure status on a last line without a newline, even
+  # though it has read the line. The test `-n` keeps that line.
+  while IFS= read -r line || [[ -n ${line} ]]; do
+    # The cells of a row are separated by `|`. The text before the first `|` is
+    # empty, and the title and the reason (the 2nd and 5th cells) are not read.
+    IFS='|' read -r first number _ status replaced _ link _ <<<"${line}"
     number="$(trim "${number}")"
     if [[ -n ${first} || ! ${number} =~ ^[0-9]{4}$ ]]; then
       continue
