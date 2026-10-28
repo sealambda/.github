@@ -1,0 +1,66 @@
+name: Links
+
+# The weekly check of the links to other sites in the documents of this
+# repository. The pull request check (ci.yml) tests the links to local files
+# only, because a page of another site that moves would fail every open pull
+# request. When this run fails, the job `report` opens an issue, or adds a
+# comment to the issue that is already open, so that one issue holds the
+# problem until someone fixes it.
+on:
+  schedule:
+    # Mondays at 05:17 UTC. The minute is not 0, because GitHub delays many
+    # scheduled runs at the start of an hour.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: links
+  cancel-in-progress: false
+
+jobs:
+  links:
+    name: Links
+    permissions:
+      contents: read
+    # The call uses `./`, so the kit is the one of the commit that this run
+    # checks (see ci.yml for the ignore).
+    uses: ./.github/workflows/docs.yml # zizmor: ignore[self-repository]
+    with:
+      external-links: true
+      templates: "docs-kit/templates/*"
+
+  report:
+    name: Report
+    needs: links
+    # Only a broken link opens the issue: the status 1 of the check of the links.
+    # A failure of the Nix build, of the offline check or of the setup leaves the
+    # output empty, and the red run is the signal for it.
+    if: ${{ always() && needs.links.outputs.external-links-status == '1' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write # Opens the issue, or comments on the open one.
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: Broken links in the documents
+    steps:
+      # The issue is found by its exact title, because a label may not exist.
+      - name: Open or update the issue
+        run: |
+          number="$(gh issue list --state open --search "\"${TITLE}\" in:title" \
+            --json number,title \
+            --jq "map(select(.title == \"${TITLE}\")) | first | .number // empty")"
+          body="The weekly link check failed. The log of the run lists the links: ${RUN_URL}"
+          if [[ -n "${number}" ]]; then
+            gh issue comment "${number}" --body "${body}"
+          else
+            gh issue create --title "${TITLE}" --body "${body}"
+          fi
