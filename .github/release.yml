@@ -1,0 +1,24 @@
+# The categories of the release notes that `gh release create --generate-notes`
+# writes (docs/how-to/release-a-component.md). GitHub sorts each merged pull
+# request by its labels, in the order below. A pull request with none of the
+# listed labels goes to the last category.
+# Format: https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: Fixes
+      labels:
+        - bug
+    - title: New features and improvements
+      labels:
+        - enhancement
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Other changes
+      labels:
+        - "*"
