@@ -75,6 +75,9 @@ The policy has these parts:
 - The merge of the policy waits for the read of PVR in each public repository.
 - The validation of the issue forms with their schema runs in the `formatting`
   check of the flake.
+- The linter `security-form-name` of the `formatting` check fails when the form
+  file is missing, or when a document that names the form does not quote its
+  `name` field.
 
 ## Pros and Cons of the Options
 
