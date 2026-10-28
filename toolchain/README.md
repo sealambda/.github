@@ -180,4 +180,5 @@ directories are the lists in [package-managers.nix](package-managers.nix).
 ## Change it
 
 1. Edit the files in this directory, and run `nix flake check` here.
-2. A release is a tag `toolchain-vN` on `main`.
+2. A release is a tag `toolchain-vN` on `main`. The steps are in
+   [Release a component](../docs/how-to/release-a-component.md).
