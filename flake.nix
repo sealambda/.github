@@ -178,6 +178,12 @@
             inherit pkgs;
             workflow = ./.github/workflows/ci.yml;
           };
+
+          # The shell steps of docs.yml and links.yml, run with fake programs.
+          docs-workflow-steps = import ./nix/docs-workflow-steps.nix {
+            inherit pkgs;
+            root = self;
+          };
         }
         # The subflakes' own checks; a root check does not run them otherwise.
         // lib.mapAttrs' (name: lib.nameValuePair "toolchain-${name}") toolchain.checks.${system}
