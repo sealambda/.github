@@ -1,0 +1,5 @@
+# Words that typos (https://github.com/crate-ci/typos) must accept in this
+# repository. Each entry maps a word to itself and says why it is correct.
+[default.extend-words]
+# `pn`, pnpm's short command name.
+pn = "pn"

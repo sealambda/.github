@@ -1,0 +1,22 @@
+# The text style of this repository, for editors and for the formatters that
+# read it: Prettier (Markdown, YAML, JSON), shfmt (shell) and
+# editorconfig-checker (every file). https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# shfmt's keys: the Google Shell Style Guide
+# (https://google.github.io/styleguide/shellguide.html). Bash is the only
+# dialect; a `|`, `&&` or `||` that breaks a line starts the next line; case
+# patterns are indented; and shfmt simplifies redundant syntax.
+[*.{sh,bash}]
+shell_variant = bash
+binary_next_line = true
+switch_case_indent = true
+simplify = true
