@@ -1,25 +1,42 @@
 # `sealambda/.github`
 
-The default community health files of the organization.
+The shared foundation of the Sealambda organization: the default community
+health files, the toolchain, the docs kit and the reusable workflows. This
+repository is public, as GitHub requires for the default files. It holds no
+internal facts.
 
-GitHub applies these files to every repository of the organization that has
-no file of its own, private repositories included. This repository is
-public, as GitHub requires for these defaults. It holds no internal facts.
+## What it provides
 
-- `CONTRIBUTING.md` is the organization's only process guide: commits, pull
-  requests, quality, review, landing, undo, dependencies, documentation and
-  settings.
+| Part                         | What it is                                                                                         | How a repository uses it                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Community health files       | `CONTRIBUTING.md`, `SECURITY.md`, the issue forms and `config.yml`, and `pull_request_template.md` | Automatically, when the repository has no file of that type.                                |
+| `toolchain/`                 | The toolchain flake: the versions of the tools, and the formatters and linters.                    | A flake input. See the [toolchain README](toolchain/README.md).                             |
+| `docs-kit/`                  | The docs kit: a Vale style, a Markdown lint configuration, a link check and the page templates.    | A flake input, a Vale package or a workflow. See the [docs kit README](docs-kit/README.md). |
+| `.github/workflows/docs.yml` | The reusable workflow that runs the docs check and the online link check.                          | `uses: sealambda/.github/.github/workflows/docs.yml@docs-kit-vN`                            |
+
+### Community health files
+
+GitHub applies a default file to every repository of the organization that has
+no file of that type, whatever the visibility of the repository. See
+[creating a default community health file](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file).
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) is the organization's only process
+  guide: commits, pull requests, checks, review, landing, undo and
+  documentation.
+- [`SECURITY.md`](SECURITY.md) tells reporters to use private vulnerability
+  reporting.
+- `.github/ISSUE_TEMPLATE/` holds the issue forms for a bug report and for a
+  feature or change request, and `config.yml`, which turns off blank issues.
+  A repository that defines valid issue templates or a configuration uses
+  its own folder only.
 - `pull_request_template.md` is the body of a new pull request: Why, Change,
   Verification, Rollback, After deploy.
-- `toolchain/` is the organization's toolchain flake: the versions of the
-  tools, and the formatters and linters of every repository. Its
-  [README](toolchain/README.md) is the reference for a consumer.
-- `docs-kit/` is the organization's docs kit: a Vale style, a Markdown lint
-  configuration, a link check and the page templates. Its
-  [README](docs-kit/README.md) is the reference for a consumer.
-- `.github/workflows/docs.yml` is the reusable workflow that runs the docs
-  check, and the online link check when asked. `links.yml` runs that check
-  every week.
+- A repository still needs its own `LICENSE`, because GitHub supports no
+  default license file. `CODEOWNERS` is not a default file either. The file
+  [`.github/CODEOWNERS`](.github/CODEOWNERS) applies to this repository only.
+- [`AGENTS.md`](AGENTS.md) holds the agent instructions of this repository.
+  Every repository copies the essentials block of `CONTRIBUTING.md` into its
+  own `AGENTS.md`.
 
 ## Quality gate
 
@@ -35,8 +52,8 @@ toolchain, the pnpm-only lint, the docs check of the docs kit on the documents
 of this repository, the lock file checks, and the checks of the toolchain and
 the docs kit. Neither command writes a lock file, so a stale lock fails the
 gate.
-CI runs the script on each pull request, on Linux (x86_64 and arm64) and on
-macOS (arm64), because the toolchain's `version-line` check compares the
+CI runs the script on each pull request that is ready and on `main`, on Linux
+(x86_64 and arm64) and on macOS (arm64), because the toolchain's `version-line` check compares the
 versions of the system that runs it (`.github/workflows/ci.yml`). Its job
 `ci` is the one status to require in a ruleset. Each job of the `check`
 matrix also opens `nix develop` once and looks up each forbidden
