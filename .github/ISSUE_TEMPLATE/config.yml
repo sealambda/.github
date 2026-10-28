@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# The configuration of the issue chooser of every repository that has no
+# issue templates of its own. GitHub does not mix this folder with the one of
+# a repository: a repository that defines valid templates or a configuration
+# uses its own folder only.
+#
+# `url` must be an absolute URL, so the link is the same in every repository:
+# it opens the security policy of the organization. A repository with a
+# `SECURITY.md` of its own and no issue templates still shows this link, so
+# the text below says that the policy of the repository wins. The issue forms
+# in this folder say "the security policy of this repository" and carry no
+# link, for the same reason.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/sealambda/.github/blob/main/SECURITY.md
+    about: Read how to report a vulnerability privately. If the repository has its own security policy, that policy applies. Do not open a public issue.

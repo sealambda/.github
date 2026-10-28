@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MPL-2.0
+name: Feature or change request
+description: Ask for a new feature, or for a change to existing behavior.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Why
+      description: Describe the problem or the need. Say who has it and what it costs.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the behavior that you want.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: List other ways to solve the problem, and why you did not choose them.
