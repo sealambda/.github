@@ -1,0 +1,12 @@
+name: Audit the Mix projects
+description: >-
+  Run `mix hex.audit` in every directory with a tracked `mix.lock`, inside the default dev shell of
+  the flake at the root of the checkout. The step needs Nix on the runner. It passes when the
+  checkout has no Mix project. Contract: docs/reference/workflows.md#dependency-audits.
+
+runs:
+  using: composite
+  steps:
+    - name: Audit every Mix project
+      shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/mix-audit.sh"

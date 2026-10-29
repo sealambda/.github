@@ -1,0 +1,83 @@
+name: Lint workflows
+
+# Check the calling repository's GitHub Actions files: actionlint for the syntax, the expressions
+# and the shell scripts in the `run:` blocks of workflows; zizmor for security (injections,
+# credentials left in a checkout, wide permissions, unpinned or impostor references) in workflows
+# and in actions. actionlint reads workflow files only. Each tool reads its own configuration from
+# the repository. Inputs and configuration: docs/reference/workflows.md#lint-workflows.
+#
+# The first job states the `runs-on` expression and names it with the YAML anchor `&runner`; the
+# other job uses `*runner`. GitHub has no workflow-level value for `runs-on`. The rule that the
+# expression states is in docs/reference/workflows.md#rules-for-every-workflow.
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: >-
+          The runner of every job, as JSON: one label in quotes, or an array of labels. A public
+          repository always runs on GitHub-hosted runners, whatever this input says.
+        type: string
+        default: '"ubuntu-24.04"'
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: &runner ${{ github.event.repository.private && fromJSON(inputs.runs-on) || 'ubuntu-24.04' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    # The official image, pinned by digest; it holds ShellCheck for the `run:` scripts.
+    env:
+      ACTIONLINT_IMAGE: rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Pull the image
+        uses: $/.github/actions/docker-pull
+        with:
+          image: ${{ env.ACTIONLINT_IMAGE }}
+      - name: actionlint
+        run: |
+          docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --user "$(id -u):$(id -g)" \
+            --volume "${PWD}:/repo:ro" --workdir /repo \
+            "${ACTIONLINT_IMAGE}" -color
+
+  zizmor:
+    name: zizmor
+    runs-on: *runner
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      ZIZMOR_IMAGE: ghcr.io/zizmorcore/zizmor:1.31.1@sha256:42d409dbb851d4c5d35a058cf042b828bea1e3f2884378c526eb0974780e18d9
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Pull the image
+        uses: $/.github/actions/docker-pull
+        with:
+          image: ${{ env.ZIZMOR_IMAGE }}
+      # Online: the audits that resolve references through the GitHub API run too, such as the
+      # check that a pinned SHA belongs to the action's repository (impostor-commit). The token can
+      # only read.
+      - name: zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          docker run --rm --read-only --tmpfs /tmp \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --user "$(id -u):$(id -g)" --env HOME=/tmp --env GH_TOKEN \
+            --volume "${PWD}:/repo:ro" --workdir /repo \
+            "${ZIZMOR_IMAGE}" --format github .
