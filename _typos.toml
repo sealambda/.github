@@ -3,3 +3,7 @@
 [default.extend-words]
 # `pn`, pnpm's short command name.
 pn = "pn"
+
+[default.extend-identifiers]
+# `inpt333`, a GitHub user name in .github/CODEOWNERS.
+inpt333 = "inpt333"

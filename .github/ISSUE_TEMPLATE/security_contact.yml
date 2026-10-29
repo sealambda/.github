@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# The fallback channel of SECURITY.md for a repository that has private
+# vulnerability reporting turned off. The issue is public, so the form holds
+# the name of the repository and no detail of the vulnerability. A maintainer
+# answers with a private channel.
+name: Request a security contact
+description: Ask the maintainers for a private way to report a vulnerability. Put no detail of the vulnerability in this issue.
+title: Security contact request
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This issue is public. Put no detail of the vulnerability here.**
+
+        Use this form only when the repository has no **Report a vulnerability**
+        button in its **Security and quality** tab. A maintainer answers with a
+        private channel.
+  - type: input
+    id: repository
+    attributes:
+      label: Repository
+      description: The name of the repository that has the vulnerability.
+      placeholder: sealambda/example
+    validations:
+      required: true
+  - type: checkboxes
+    id: no-detail
+    attributes:
+      label: Confirmation
+      options:
+        - label: This issue holds no detail of the vulnerability.
+          required: true

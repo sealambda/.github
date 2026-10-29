@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MPL-2.0
+name: Bug report
+description: Report something that does not work as documented.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report a security vulnerability here. Read the security policy
+        of this repository and report the vulnerability privately.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happens
+      description: Describe the wrong behavior and the effect it has.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the steps that show the problem, with the exact commands or inputs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The release, or the commit SHA of the default branch, that shows the problem.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      description: Paste the error message or the log. Remove secrets first.
+      render: shell

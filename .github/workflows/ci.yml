@@ -6,7 +6,7 @@
 # docs.yml the way a caller does, and so it is the test of that workflow. The
 # links to other sites are not part of either job: the scheduled workflow
 # links.yml requests them. A draft pull request skips both jobs
-# (CONTRIBUTING.md, section 5).
+# (CONTRIBUTING.md, "Pull requests").
 #
 # The job `ci` is the only status that a ruleset needs to require: it fails
 # when a job above it failed or was cancelled, and passes when they were

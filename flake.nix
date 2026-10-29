@@ -99,6 +99,11 @@
             nativeBuildInputs = [ docs-kit.packages.${system}.docs-check ];
           } ''docs-check --template 'docs-kit/templates/*' ${self} && touch "$out"'';
 
+          # The decision records of docs/decisions and their ledger agree: a
+          # record in the tree is in force, a number is used once, and a
+          # replaced record names an existing successor.
+          decisions = docs-kit.lib.mkDecisionsCheck pkgs ./docs/decisions;
+
           # The repository uses pnpm only. The lint reads the files that Git
           # tracks, and a flake's source has no .git: the build copies the
           # source into a new repository and tracks every file in it.
@@ -185,6 +190,9 @@
             root = self;
           };
         }
+        # The cases of the repository's own lints (lints/checks.nix): each lint
+        # runs on small trees with hand-written expected results.
+        // lib.mapAttrs' (name: lib.nameValuePair "lints-${name}") (import ./lints/checks.nix pkgs)
         # The subflakes' own checks; a root check does not run them otherwise.
         // lib.mapAttrs' (name: lib.nameValuePair "toolchain-${name}") toolchain.checks.${system}
         # The kit has no check of its own documents: they link to pages outside

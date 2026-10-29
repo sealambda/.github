@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MPL-2.0
+#
+# The code owners of this repository only. GitHub does not inherit CODEOWNERS
+# from the organization's .github repository, so each repository has its own.
+# The ruleset of the default branch requires a review from a code owner, so
+# this file decides who may approve a change (CONTRIBUTING.md, "Landing").
+* @NoobInTheNet @borgoat @inpt333
+
+# The configuration that a scanner reads from the tree it scans. A pull request
+# can change these files and so disable its own scan, which makes a review of
+# each change the only control. The lines repeat the owners of `*` on purpose:
+# they keep the review in force if `*` is ever narrowed.
+/.gitleaks.toml @NoobInTheNet @borgoat @inpt333
+/.gitleaksignore @NoobInTheNet @borgoat @inpt333
+/.github/zizmor.yml @NoobInTheNet @borgoat @inpt333
+/.github/actionlint.yaml @NoobInTheNet @borgoat @inpt333
