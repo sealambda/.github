@@ -8,11 +8,15 @@
 # https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context
 # Remove the entry when actionlint lists the properties.
 #
-# gate.yml, lint-workflows.yml and secrets.yml: actionlint rejects the self-repository syntax `$/`
-# in the `uses:` of a step ("ref is missing", rhysd/actionlint#711). GitHub resolves `$/` against
-# the repository of the workflow file at the running commit, so a composite action of this
-# repository works in a repository that calls the workflow. `./` would resolve against the calling
-# repository instead. Remove the entries when actionlint accepts `$/` (pull request #732).
+# gate.yml, lint-workflows.yml, secrets.yml and release-image.yml: actionlint rejects the
+# self-repository syntax `$/`, the form that GitHub documents for a reference to the repository of
+# the file itself, at the commit of the file, whoever calls it. In the `uses:` of a step it reports
+# "ref is missing" (rhysd/actionlint#711). `./` would resolve against the calling repository
+# instead. release-image.yml also calls three workflows of this repository at the job level;
+# actionlint reports that as "not following the format". The calls of ci.yml and links.yml use `./`,
+# which is the same repository there, and so need no entry.
+# Remove the entries when actionlint accepts `$/` (pull request #732, not merged):
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_iduses
 paths:
   .github/workflows/docs.yml:
     ignore:
@@ -23,6 +27,10 @@ paths:
   .github/workflows/lint-workflows.yml:
     ignore:
       - 'specifying action "\$/\.github/actions/docker-pull" in invalid format because ref is missing'
+  .github/workflows/release-image.yml:
+    ignore:
+      - 'specifying action "\$/[^"]+" in invalid format because ref is missing'
+      - 'reusable workflow call "\$/[^"]+" at "uses" is not following the format'
   .github/workflows/secrets.yml:
     ignore:
       - 'specifying action "\$/\.github/actions/docker-pull" in invalid format because ref is missing'

@@ -11,6 +11,7 @@ shows complete callers.
 | [`lint-workflows.yml`](#lint-workflows) | actionlint and zizmor on the caller's workflows, zizmor on the caller's actions |
 | [`secrets.yml`](#secrets)               | gitleaks on the history of the checked-out commit                               |
 | [`docs.yml`](#docs)                     | The docs check of the caller's documents, from the docs kit                     |
+| [`release-image.yml`](#release-image)   | The checks on the merged commit, then the image build and push to ECR           |
 
 ## Rules for every workflow
 
@@ -23,7 +24,9 @@ shows complete callers.
   self-hosted labels. A public repository always runs on the GitHub-hosted
   runner `ubuntu-24.04`, whatever it passes, because its pull requests come
   from forks and code from a fork must never run on a self-hosted runner.
-  The workflows decide this from `github.event.repository.private`, which
+  `release-image.yml` runs its jobs `check-trigger` and `publish` on
+  `ubuntu-24.04` whatever it passes. The workflows decide this from
+  `github.event.repository.private`, which
   reads the caller's event. An event without that field also gets the
   GitHub-hosted runner. A private repository whose organization allows
   workflows to run on pull requests from forks has `private == true`, so fork
@@ -81,6 +84,10 @@ allows them:
 - `nixbuild/nix-quick-install-action` (GitHub-hosted runners only)
 - `actions/cache`, which also covers `actions/cache/restore` and
   `actions/cache/save` (only `docs.yml` with `external-links: true`)
+- `aws-actions/configure-aws-credentials` (`release-image.yml` only)
+- `docker/login-action` (`release-image.yml` only)
+- `docker/setup-buildx-action` (`release-image.yml` only)
+- `docker/build-push-action` (`release-image.yml` only)
 - The composite actions of this repository, `sealambda/.github/.github/actions/*`,
   when the policy refuses a run that uses them (GitHub's documentation of `$/`
   does not say how the policy treats these references)
@@ -105,10 +112,13 @@ actionlint 1.7.12 rejects `$/` in a step
 file `.github/actionlint.yaml` of this repository ignores that one message in
 each file that needs it, and names the condition to remove it.
 
-| Action        | What it does                                                                         |
-| ------------- | ------------------------------------------------------------------------------------ |
-| `docker-pull` | `docker pull` of an image, retried up to five times with a jittered, bounded backoff |
-| `mix-audit`   | `mix hex.audit` in every Mix project of the checkout                                 |
+| Action          | What it does                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| `check-trigger` | The trigger, owner and name checks of a release, then `head-of-main`                                 |
+| `docker-pull`   | `docker pull` of an image, retried up to five times with a jittered, bounded backoff                 |
+| `ecr-put-tag`   | The ECR steps of a release: `inspect` the repository and the tag, `put` the tag, `report` the digest |
+| `head-of-main`  | Fails unless `github.sha` is the head of `main` of the caller                                        |
+| `mix-audit`     | `mix hex.audit` in every Mix project of the checkout                                                 |
 
 ## `gate`
 
@@ -290,3 +300,204 @@ whole commit, because the documents link to other files of the repository.
 - The links to other sites are off by default, because a page of another site
   that moves would fail every open pull request. This repository checks them
   on a schedule.
+
+## `release-image`
+
+`release-image.yml` releases the container image of a commit on `main`. Its
+jobs run in this order:
+
+1. **`check-trigger`.** A release runs on a push to `main` only, for a
+   repository of this organization. The job checks the format of
+   `aws-account-id`, `aws-region` and the repository name, and that the commit
+   is still the head of `main` ([Which commit may release](#which-commit-may-release)).
+2. **`gate`, `lint-workflows` and `secrets`.** Three jobs in parallel: the
+   workflows [`gate.yml`](#gate), [`lint-workflows.yml`](#lint-workflows) and
+   [`secrets.yml`](#secrets), each on `github.sha`. On GitHub Free a private
+   repository cannot require a check before a merge, so the release runs these
+   checks itself, and builds only when all of them pass. A repository that
+   releases needs no separate call of these three on `main`. The release calls
+   them with `$/`, which names a file of this repository and not a file of the
+   caller's repository.
+3. **`publish`.** It needs the four jobs above. It checks the head of `main`,
+   assumes the role, builds, checks the head again and tags the image.
+   - It builds `Dockerfile` at the root of the commit for `linux/amd64`,
+     without provenance or SBOM attestations, so the digest names one image
+     manifest. The BuildKit image is pinned by digest. The build uses no cache
+     and uploads no build record.
+   - It pushes the image by digest, with no tag. Then it gives the image the
+     tag `build-<sha>` with ECR `PutImage`.
+   - It writes the digest to the job summary and to the output `digest`.
+
+`check-trigger` and `publish` always run on the GitHub-hosted runner
+`ubuntu-24.04`, whatever `runs-on` says. A self-hosted runner can keep files
+from the jobs of other repositories, and `publish` holds the AWS credentials.
+
+### Which commit may release
+
+A release refuses every commit that is not the head of `main`. `check-trigger`
+compares `github.sha` with the head of `main` at the start. `publish` compares
+it again before it asks for credentials, and once more before it tags the
+image. If a check cannot read the head, it fails and the release stops.
+
+Because of this, the re-run of an old run is refused once a newer commit is on
+`main`. That is intended: a re-run keeps its original commit, and a superseded
+commit must not replace a newer release.
+
+- The head checks refuse a commit that a newer head of `main` has superseded.
+- `PutImage` decides only between two runs of the same commit.
+- A window of a few seconds stays: the time between the last head check and
+  `PutImage`. A commit that is released in this window was the head of `main`
+  when the check ran.
+
+A [dry run](#dry-run) checks neither the head nor anything else in `check-trigger`.
+
+### Names
+
+Every name comes from the caller's repository name, lower-cased. No input can
+name another repository's image or role. The account and the region choose
+where the role is looked up. A repository of another owner cannot release:
+`check-trigger` compares the numeric ID of the owner.
+
+| Name           | Value                                                                    |
+| -------------- | ------------------------------------------------------------------------ |
+| ECR repository | `<name>`                                                                 |
+| Role           | `arn:aws:iam::<aws-account-id>:role/release-push-<name>`                 |
+| Image          | `<aws-account-id>.dkr.ecr.<aws-region>.amazonaws.com/<name>:build-<sha>` |
+
+The name has 2 to 51 characters: lower-case letters and digits, with single
+`.`, `_` or `-` between them. The limit of 51 leaves room for `release-push-`
+in the 64 characters of an IAM role name. ECR allows more names, such as
+`data--sync`; this workflow accepts the stricter set. A repository with
+another name cannot release.
+
+### Release inputs
+
+| Input                  | Type    | Default            | Description                                                                                            |
+| ---------------------- | ------- | ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `aws-account-id`       | string  | `""`               | The AWS account of the registry, 12 digits; not used in a dry run                                      |
+| `aws-region`           | string  | `""`               | The AWS region of the registry; not used in a dry run                                                  |
+| `runs-on`              | string  | `'"ubuntu-24.04"'` | The runner of `gate`, `lint-workflows` and `secrets`, as JSON; `check-trigger` and `publish` ignore it |
+| `gate-timeout-minutes` | number  | `60`               | The time limit of the gate's entry point                                                               |
+| `dry-run`              | boolean | `false`            | Run the checks and build, but assume no role and push nothing                                          |
+
+Pass the account and the region from repository variables. Organization
+variables do not reach private repositories on GitHub Free.
+
+### What the gate covers
+
+The release runs exactly these checks on the commit:
+
+- the caller's [entry point](#the-entry-point), `scripts/ci/gate.sh`;
+- OSV-Scanner and `mix hex.audit` ([dependency audits](#dependency-audits));
+- actionlint and zizmor on the caller's workflows and actions;
+- gitleaks on the history of the commit.
+
+The first check is the caller's own script, taken from the commit that is
+released. A person who can push to the caller's `main` can change the script
+in the same commit as the Dockerfile. On GitHub Free no rule prevents this in a
+private repository. The gate is as strong as the caller's `scripts/ci/gate.sh`.
+
+The gate and the image are independent. The gate runs in the caller's tools,
+usually its Nix shell. The image is built from the caller's `Dockerfile`, with
+its own base images. Nothing compares the two, so the versions that the gate
+tested and the versions in the image can differ. Keep the versions of the
+`Dockerfile` in step with the caller's toolchain.
+
+### Release outputs
+
+| Output   | Description                                         |
+| -------- | --------------------------------------------------- |
+| `digest` | The digest of the image manifest, `sha256:<64 hex>` |
+
+### Release permissions
+
+The caller's job grants `contents: read` and `id-token: write`. Only `publish`
+holds `id-token: write`. The jobs that run the caller's code (`gate`,
+`lint-workflows` and `secrets`) get `contents: read` only.
+
+### The release role
+
+The caller must use the reference `@main`: `release-image.yml` runs from
+the `main` branch of this repository, and nothing else is trusted.
+
+**Trust policy.** The role `release-push-<name>` trusts GitHub's OIDC provider
+with these five conditions, all `StringEquals`, with no wildcard. Each
+condition key has the prefix `token.actions.githubusercontent.com:`.
+
+| Claim                 | Value                                                                   |
+| --------------------- | ----------------------------------------------------------------------- |
+| `aud`                 | `sts.amazonaws.com`                                                     |
+| `repository_owner_id` | The numeric ID of the organization                                      |
+| `repository_id`       | The numeric ID of the caller's repository                               |
+| `ref`                 | `refs/heads/main`                                                       |
+| `job_workflow_ref`    | `sealambda/.github/.github/workflows/release-image.yml@refs/heads/main` |
+
+A `StringLike` on the file name, or a tag or branch wildcard, lets any other
+branch or tag of this repository mint tokens for the role.
+
+**Permissions.** The role needs these actions, and no others:
+
+- On the resource `*`: `ecr:GetAuthorizationToken`.
+- On the ECR repository `<name>` only: `ecr:BatchCheckLayerAvailability`,
+  `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`,
+  `ecr:CompleteLayerUpload`, `ecr:PutImage`, `ecr:BatchGetImage`,
+  `ecr:DescribeImages` and `ecr:DescribeRepositories`.
+
+[The AWS policy for pushing an image](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-push-iam.html)
+holds `ecr:GetAuthorizationToken` and the six repository actions from
+`ecr:BatchCheckLayerAvailability` to `ecr:BatchGetImage`. The role needs two
+more, which that policy does not list: `ecr:DescribeImages` finds an existing
+tag, and `ecr:DescribeRepositories` reads the tag mutability. `ecr:BatchGetImage`
+reads the manifest of the pushed image, and `ecr:PutImage` tags it with that
+manifest.
+
+**Repository.** `publish` fails unless the ECR repository has
+`imageTagMutability` `IMMUTABLE`. The values `MUTABLE` and
+`IMMUTABLE_WITH_EXCLUSION` fail.
+
+**Tag lifetime.** The tag `build-<sha>` is immutable while it exists. A
+lifecycle policy of the repository can expire it. After that, a run for the
+same commit builds and pushes again, and the new digest can differ. Only the
+head of `main` can run, so this affects a re-run of the newest commit only.
+
+**Re-run.** A second run for a released commit finds the tag `build-<sha>` and
+returns its digest. If two runs of one commit tag the image at the same time,
+`PutImage` accepts one. The other gets "image already exists", looks up the tag
+and returns the same digest.
+
+**Audit.** The role session is named `release-image-<run_id>-<run_attempt>`, so
+CloudTrail tells the attempts of one run apart.
+
+### Runbook: re-run a release
+
+Use "Re-run all jobs". "Re-run failed jobs" and the re-run of a single job use
+the file `release-image.yml` of the first attempt, and the trust policy accepts
+every version of that file on `main`. After a security fix to this workflow,
+cancel the pending runs, then use "Re-run all jobs". The head check refuses a
+commit that is no longer the head of `main`.
+
+### Dry run
+
+`dry-run: true` runs `gate`, `lint-workflows`, `secrets` and the build, from
+any event and any ref. `check-trigger` ends at once and checks nothing: not the
+event, the ref, the repository name, the registry or the head of `main`. It
+outputs no names. `publish` skips the head checks, the role and the push: it
+exports the image to a file instead, and outputs the digest of that image. A
+dry run needs no AWS role and no account. Use it to test a caller, or a change
+to this workflow.
+
+A dry run skips every check of `check-trigger`, the repository-name rule
+included. The hub runs its own dry run in the repository `.github`, a name the
+rule refuses. A repository whose name the rule refuses (for example `my__repo`)
+passes a dry run and fails at its first release.
+
+`ci.yml` of this repository runs a dry run on every pull request that is ready
+for review, forks included, with the `Dockerfile` at the root of this
+repository. A pull request from a fork gets no OIDC token, and the dry run
+needs none.
+
+`publish` still holds `id-token: write` in a dry run, because the caller must
+grant the permissions that a called job declares. The job runs no script of
+the caller. Only the Docker build runs the caller's code, and BuildKit `RUN`
+steps get no variable of the runner, so they cannot request a token. Add no
+step that runs the caller's scripts to `publish`.

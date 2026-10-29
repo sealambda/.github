@@ -1,0 +1,17 @@
+name: Require the head of main
+description: >-
+  Fail unless the commit of this run is the current head of main of the repository. The check
+  fails closed: a head that cannot be read stops the run.
+
+runs:
+  using: composite
+  steps:
+    - name: Compare the commit with the head of main
+      shell: bash
+      env:
+        # The token of the job; the calling job needs `contents: read`.
+        GH_TOKEN: ${{ github.token }}
+        REPOSITORY: ${{ github.repository }}
+        COMMIT_SHA: ${{ github.sha }}
+        GITHUB_API_URL: ${{ github.api_url }}
+      run: bash "${GITHUB_ACTION_PATH}/head-of-main.sh"

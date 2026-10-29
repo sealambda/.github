@@ -1,0 +1,220 @@
+name: Release image
+
+# Build the container image of the head of main and push it to the caller's ECR repository, after
+# the caller's full gate passed on that commit. The gate here is the release's enforcement point:
+# on GitHub Free a private repository cannot require a check before a merge, so this workflow runs
+# the checks itself and builds only when they pass.
+#
+#   check-trigger ─► gate ──────────────┐
+#                 ├► lint-workflows ────┼─► publish
+#                 └► secrets ───────────┘
+#
+# The gate is the caller's scripts/ci/gate.sh plus the dependency audits; lint-workflows and secrets
+# are the other two checks of a pull request. publish needs all of them.
+#
+# No input can name another repository's image or role: both names come from github.repository.
+# The account and the region choose only where the role is looked up. The role trusts the caller's
+# repository_owner_id and repository_id, ref refs/heads/main and the job_workflow_ref of this file
+# on main, so only the publish job of this workflow, on main, can push.
+#
+# What protects what. The head checks refuse a commit that a newer head of main has superseded;
+# they run before the credentials and again before the tag is put. put-image only arbitrates two
+# runs of the same commit, and the first one wins. The seconds between the second head check and
+# put-image stay open: a commit released in them was the head when the check ran.
+#
+# check-trigger and publish run on GitHub-hosted runners only: publish holds the AWS credentials,
+# and a runner that ran the caller's code must never hold them. Inputs, outputs, permissions and
+# the dry run: docs/reference/workflows.md#release-image.
+on:
+  workflow_call:
+    inputs:
+      aws-account-id:
+        description: The ID of the AWS account of the ECR registry, 12 digits. Not used in a dry run.
+        type: string
+        default: ""
+      aws-region:
+        description: The AWS region of the ECR registry, such as eu-west-1. Not used in a dry run.
+        type: string
+        default: ""
+      runs-on:
+        description: >-
+          The runner of the gate, lint-workflows and secrets jobs, as JSON: one label in quotes, or
+          an array of labels. A public repository always runs on GitHub-hosted runners, whatever
+          this input says. check-trigger and publish always run on GitHub-hosted runners.
+        type: string
+        default: '"ubuntu-24.04"'
+      gate-timeout-minutes:
+        description: The time limit of the job that runs the caller's scripts/ci/gate.sh.
+        type: number
+        default: 60
+      dry-run:
+        description: >-
+          Run the gate and build the image, but assume no role and push nothing. Any event and any
+          ref may run it.
+        type: boolean
+        default: false
+    outputs:
+      digest:
+        description: >-
+          The digest of the image manifest, sha256:<64 hex>. In a dry run, the digest of the image
+          that was built and not pushed.
+        value: ${{ jobs.publish.outputs.digest }}
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check-trigger:
+    name: Check the trigger
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # the head of main of the caller, also for a private repository
+    outputs:
+      repository: ${{ steps.trigger.outputs.repository }}
+      role: ${{ steps.trigger.outputs.role }}
+      registry: ${{ steps.trigger.outputs.registry }}
+      image: ${{ steps.trigger.outputs.image }}
+    steps:
+      - name: Check the trigger
+        id: trigger
+        uses: $/.github/actions/check-trigger
+        with:
+          dry-run: ${{ inputs.dry-run }}
+          aws-account-id: ${{ inputs.aws-account-id }}
+          aws-region: ${{ inputs.aws-region }}
+
+  # The three checks run the caller's code, so they get no OIDC token. `$/` is the repository of
+  # this file (the hub), at the commit of this file, whoever calls the workflow; `./` would name
+  # the caller's repository.
+  gate:
+    name: Gate
+    needs: check-trigger
+    permissions:
+      contents: read
+    uses: $/.github/workflows/gate.yml
+    with:
+      runs-on: ${{ inputs.runs-on }}
+      timeout-minutes: ${{ inputs.gate-timeout-minutes }}
+
+  lint-workflows:
+    name: Lint workflows
+    needs: check-trigger
+    permissions:
+      contents: read
+    uses: $/.github/workflows/lint-workflows.yml
+    with:
+      runs-on: ${{ inputs.runs-on }}
+
+  secrets:
+    name: Secrets
+    needs: check-trigger
+    permissions:
+      contents: read
+    uses: $/.github/workflows/secrets.yml
+    with:
+      runs-on: ${{ inputs.runs-on }}
+
+  publish:
+    name: Build and push
+    needs: [check-trigger, gate, lint-workflows, secrets]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # A dry run keeps the OIDC token: the only caller code that runs in this job is the Docker
+      # build, and the RUN steps of a build see no variable of the runner, so none of them can
+      # request a token. Do not add a step that runs the caller's scripts.
+      id-token: write # the OIDC token for the role release-push-<name>
+    env:
+      # The AWS CLI retries throttling and transient errors on its own; this raises the attempts.
+      AWS_MAX_ATTEMPTS: "5"
+    outputs:
+      digest: ${{ steps.report.outputs.digest }}
+    steps:
+      - name: Require the head of main
+        if: ${{ !inputs.dry-run }}
+        uses: $/.github/actions/head-of-main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Assume the push role
+        if: ${{ !inputs.dry-run }}
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ needs.check-trigger.outputs.role }}
+          aws-region: ${{ inputs.aws-region }}
+          role-session-name: release-image-${{ github.run_id }}-${{ github.run_attempt }}
+      # The tag build-<sha> is immutable while it exists, so a re-run of the same commit returns the
+      # image that is already there. A lifecycle policy may expire the tag; a re-run after that
+      # builds the commit again, and the new image can have another digest. Absent means build; any
+      # other failure stops here rather than build.
+      - name: Look for this commit's image
+        id: existing
+        if: ${{ !inputs.dry-run }}
+        uses: $/.github/actions/ecr-put-tag
+        with:
+          operation: inspect
+          repository: ${{ needs.check-trigger.outputs.repository }}
+          tag: build-${{ github.sha }}
+      - name: Log in to ECR
+        if: ${{ !inputs.dry-run && steps.existing.outputs.digest == '' }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ needs.check-trigger.outputs.registry }}
+      # The BuildKit image is pinned by digest: it runs every RUN step of the caller's Dockerfile,
+      # holds the registry credential and writes the pushed manifest. v0.33.1 was published on
+      # 2026-09-30. Resolve a new digest with `crane digest docker.io/moby/buildkit:<tag>`.
+      - name: Set up Docker Buildx
+        if: ${{ steps.existing.outputs.digest == '' }}
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+      # One platform and no attestations, so the digest names one image manifest. No cache: a
+      # release reads nothing that another workflow wrote. The image is pushed by digest, with no
+      # tag; the tag is put after the second head check. A dry run exports the image to a file,
+      # which gives it a digest without a registry. The build record would store the build log as
+      # an artifact of the caller's repository.
+      - name: Build
+        id: build
+        if: ${{ steps.existing.outputs.digest == '' }}
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
+          DOCKER_BUILD_SUMMARY: "false"
+        with:
+          context: .
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          outputs: ${{ inputs.dry-run && format('type=oci,dest={0}/image.tar', runner.temp) || format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', needs.check-trigger.outputs.image) }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            com.sealambda.build.run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # The build took minutes; a newer head of main may exist now.
+      - name: Require the head of main again
+        if: ${{ !inputs.dry-run && steps.existing.outputs.digest == '' }}
+        uses: $/.github/actions/head-of-main
+      - name: Tag the image
+        id: put
+        if: ${{ !inputs.dry-run && steps.existing.outputs.digest == '' }}
+        uses: $/.github/actions/ecr-put-tag
+        with:
+          operation: put
+          repository: ${{ needs.check-trigger.outputs.repository }}
+          tag: build-${{ github.sha }}
+          digest: ${{ steps.build.outputs.digest }}
+      - name: Report the digest
+        id: report
+        uses: $/.github/actions/ecr-put-tag
+        with:
+          operation: report
+          tag: build-${{ github.sha }}
+          digest: ${{ steps.put.outputs.digest || steps.existing.outputs.digest || steps.build.outputs.digest }}
+          image: ${{ needs.check-trigger.outputs.image }}
+          dry-run: ${{ inputs.dry-run }}

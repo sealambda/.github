@@ -38,8 +38,10 @@ fetches from GitHub unauthenticated, with a lower rate limit.
 ## 4. Call the workflows
 
 Call `lint-workflows` and `secrets` on every pull request that is ready for
-review, and on `main`. Call `gate` on `main`. The gate checks the commit of
-the event, so it takes no commit input.
+review. A repository that releases an image calls `release-image` on `main`:
+it runs the gate, `lint-workflows` and `secrets` itself. Any other repository
+calls `gate`, `lint-workflows` and `secrets` on `main` as well. The gate
+checks the commit of the event, so it takes no commit input.
 
 Give the caller a `concurrency` block. A newer push to a pull request then
 cancels the older run, which would otherwise keep a runner busy. A run on
@@ -119,7 +121,7 @@ concurrency:
 
 jobs:
   lint-workflows:
-    if: ${{ !github.event.pull_request.draft }}
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     permissions:
       contents: read
     uses: sealambda/.github/.github/workflows/lint-workflows.yml@main
@@ -127,22 +129,29 @@ jobs:
       runs-on: ${{ vars.RUNS_ON_SMALL || '["self-hosted","linux","x64","small"]' }}
 
   secrets:
-    if: ${{ !github.event.pull_request.draft }}
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     permissions:
       contents: read
     uses: sealambda/.github/.github/workflows/secrets.yml@main
     with:
       runs-on: ${{ vars.RUNS_ON_SMALL || '["self-hosted","linux","x64","small"]' }}
 
-  gate:
+  release:
     if: github.event_name == 'push'
     permissions:
       contents: read
-    uses: sealambda/.github/.github/workflows/gate.yml@main
+      id-token: write
+    uses: sealambda/.github/.github/workflows/release-image.yml@main
     with:
+      aws-account-id: ${{ vars.AWS_ACCOUNT_ID }}
+      aws-region: ${{ vars.AWS_REGION }}
       runs-on: ${{ vars.RUNS_ON_SMALL || '["self-hosted","linux","x64","small"]' }}
-      timeout-minutes: 120
+      gate-timeout-minutes: 120
 ```
+
+`release-image` runs `gate`, `lint-workflows` and `secrets` itself on the
+commit that it releases, so the repository calls them on pull requests only
+and does not call `gate.yml` on `main`. A failed check blocks the release.
 
 ### Example: an infrastructure repository with Nix and OpenTofu
 

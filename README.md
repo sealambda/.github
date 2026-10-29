@@ -3,7 +3,8 @@
 The shared foundation of the Sealambda organization: the default community
 health files, the toolchain, the docs kit and the reusable workflows. This
 repository is public, as GitHub requires for the default files. It holds no
-secrets. Do not add a secret or a private fact: treat every file as public.
+secrets and no account IDs, and the naming scheme of the release roles is
+public. Do not add a secret or a private fact: treat every file as public.
 
 The license of this repository is the [Mozilla Public License 2.0](LICENSE).
 
@@ -53,13 +54,13 @@ in `nix.conf`).
 `scripts/check.sh` is the gate. It checks that the lock file of each flake
 below the root matches its `flake.nix`, then runs `nix flake check`, which
 runs every check of this repository: the formatters and linters of the
-toolchain, the pnpm-only lint, the docs check of the docs kit on the documents
-of this repository, the lock file checks, and the checks of the toolchain and
+toolchain, the pnpm-only lint, the tests of the scripts that
+`release-image.yml` runs, the docs check of the docs kit on the documents of
+this repository, the lock file checks, and the checks of the toolchain and
 the docs kit. Neither command writes a lock file, so a stale lock fails the
-gate.
-CI runs the script on each pull request that is ready and on `main`, on Linux
-(x86_64 and arm64) and on macOS (arm64), because the toolchain's `version-line`
-check compares the versions of the system that runs it
+gate. CI runs the script on each pull request that is ready and on `main`, on
+Linux (x86_64 and arm64) and on macOS (arm64), because the toolchain's
+`version-line` check compares the versions of the system that runs it
 (`.github/workflows/ci.yml`). Its job `ci` is the one status to require in a
 ruleset. Each job of the `check` matrix also opens `nix develop` once and looks
 up each forbidden package-manager command (`toolchain/package-managers.nix`) in
@@ -67,9 +68,9 @@ the PATH of that shell. It reports each name that it finds. It exits 1 if it
 found any, or if the list of commands or the PATH is empty, else 0. A second job
 calls the reusable workflow `docs.yml`, as a repository that uses the docs kit
 does, and a scheduled workflow (`links.yml`) requests the links to other sites.
-Two more jobs call the reusable workflows `lint-workflows.yml` and
-`secrets.yml`. They run gitleaks on the Git history and the online audits of
-zizmor, which have no local equivalent. Run
+The job `release-dry-run` runs `lint-workflows.yml` and `secrets.yml` through
+`release-image.yml`. They run gitleaks on the Git history and the online audits
+of zizmor, which have no local equivalent. Run
 `git rebase -x scripts/check.sh <base>` to check each commit of a series.
 
 - `nix develop` opens a shell with the same tools, and installs the Git hook
@@ -101,10 +102,12 @@ three in one change.
 ## Reusable workflows
 
 `.github/workflows/` also holds the organization's reusable workflows:
-`gate.yml`, `lint-workflows.yml` and `secrets.yml`. `ci.yml` calls
-`lint-workflows.yml` and `secrets.yml` on this repository, next to the jobs
-of the gate. It does not call `gate.yml`: `scripts/check.sh` is the gate of
-this repository.
+`gate.yml`, `lint-workflows.yml`, `secrets.yml` and `release-image.yml`.
+Next to the jobs of the gate, `ci.yml` has one job for these workflows,
+`release-dry-run`. It calls `release-image.yml` in dry-run mode on every pull
+request. That run calls `gate.yml`, `lint-workflows.yml` and `secrets.yml` on
+this repository, and builds the `Dockerfile` at the root. `scripts/check.sh` is
+the gate of this repository.
 
 - [Reusable workflows](docs/reference/workflows.md): the inputs, jobs and
   permissions of each workflow, and the entry point of the gate.

@@ -2,8 +2,9 @@ name: Gate
 
 # The full gate of the calling repository on one commit, and the dependency audits that every
 # release needs: OSV-Scanner on every lock file, and `mix hex.audit` in every Mix project.
-# Any repository can call it from its own workflows. It checks the commit `github.sha` of the
-# caller. Inputs, the entry point contract and the permissions: docs/reference/workflows.md#gate.
+# `release-image.yml` calls it on the merged commit before it builds, and any repository can call it
+# from its own workflows. It checks the commit `github.sha` of the caller. Inputs, the entry point
+# contract and the permissions: docs/reference/workflows.md#gate.
 #
 #   entry-point   scripts/ci/gate.sh of the caller, at the commit
 #   osv-scanner   every lock file that OSV-Scanner reads

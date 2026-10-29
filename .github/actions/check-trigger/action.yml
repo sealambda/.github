@@ -1,0 +1,49 @@
+name: Check the release trigger
+description: >-
+  Fail unless the run is a push to the head of main of a repository of the sealambda organization
+  with a valid registry, and name the ECR repository and the AWS role of the release. A dry run
+  skips every check.
+
+inputs:
+  dry-run:
+    description: "`true` or `false`. A dry run skips every check and names nothing."
+    required: true
+  aws-account-id:
+    description: The ID of the AWS account of the ECR registry, 12 digits.
+    required: true
+  aws-region:
+    description: The AWS region of the ECR registry, such as eu-west-1.
+    required: true
+
+outputs:
+  repository:
+    description: The name of the ECR repository.
+    value: ${{ steps.check.outputs.repository }}
+  role:
+    description: The ARN of the AWS role that pushes the image.
+    value: ${{ steps.check.outputs.role }}
+  registry:
+    description: The host name of the ECR registry.
+    value: ${{ steps.check.outputs.registry }}
+  image:
+    description: The registry and the repository, without a tag.
+    value: ${{ steps.check.outputs.image }}
+
+runs:
+  using: composite
+  steps:
+    - name: Require a push to main and a valid registry
+      id: check
+      shell: bash
+      env:
+        DRY_RUN: ${{ inputs.dry-run }}
+        EVENT_NAME: ${{ github.event_name }}
+        REF: ${{ github.ref }}
+        REPOSITORY: ${{ github.repository }}
+        REPOSITORY_OWNER_ID: ${{ github.repository_owner_id }}
+        AWS_ACCOUNT_ID: ${{ inputs.aws-account-id }}
+        AWS_REGION: ${{ inputs.aws-region }}
+      run: bash "${GITHUB_ACTION_PATH}/check-trigger.sh"
+    - name: Require the head of main
+      if: ${{ inputs.dry-run != 'true' }}
+      uses: $/.github/actions/head-of-main
