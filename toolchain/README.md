@@ -63,14 +63,14 @@ output name such as `treefmtModules`.
 `lib.treefmtModules.default` runs these programs. The versions are those of
 the locked nixpkgs (`nix eval --raw …#…`, or `--version` in `nix develop`).
 
-| Files                                    | Program                                                                           | Role                      |
-| ---------------------------------------- | --------------------------------------------------------------------------------- | ------------------------- |
-| `*.nix`                                  | nixfmt (RFC 166 style), statix, deadnix                                           | format, lint, unused code |
-| `*.sh`, `*.bash`                         | shfmt, ShellCheck, bash-strict-mode                                               | format, lint, strict mode |
-| `*.md`, `*.yaml`, `*.yml`, `*.json`      | Prettier                                                                          | format                    |
-| `*.yaml`, `*.yml`                        | yamllint                                                                          | lint                      |
-| GitHub workflows, actions and Dependabot | actionlint (with ShellCheck), zizmor (pedantic, offline)                          | lint                      |
-| every file                               | typos, editorconfig-checker, pre-commit-hooks' shebang checks, shell-script-names | lint                      |
+| Files                                    | Program                                                                             | Role                      |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------- |
+| `*.nix`                                  | nixfmt (RFC 166 style), statix, deadnix                                             | format, lint, unused code |
+| `*.sh`, `*.bash`                         | shfmt, ShellCheck, bash-strict-mode                                                 | format, lint, strict mode |
+| `*.md`, `*.yaml`, `*.yml`, `*.json`      | Prettier                                                                            | format                    |
+| `*.yaml`, `*.yml`                        | yamllint                                                                            | lint                      |
+| GitHub workflows, actions and Dependabot | actionlint (with ShellCheck), zizmor (pedantic, offline)                            | lint                      |
+| every file                               | typos, `editorconfig-checker`, pre-commit-hooks' shebang checks, shell-script-names | lint                      |
 
 A formatter runs first (priority 0) and a linter checks its result
 (priority 1). Lock files (`*.lock`, `pnpm-lock.yaml`) are excluded.
@@ -171,7 +171,7 @@ directories are the lists in [package-managers.nix](package-managers.nix).
 
 ### Repository files that the tools read
 
-- `.editorconfig` (required): shfmt, Prettier and editorconfig-checker
+- `.editorconfig` (required): shfmt, Prettier and `editorconfig-checker`
   read it.
 - `_typos.toml`: the words that typos must accept, each with its reason.
 - `.github/zizmor.yml` and `.github/actionlint.yaml`, when a repository
@@ -180,4 +180,5 @@ directories are the lists in [package-managers.nix](package-managers.nix).
 ## Change it
 
 1. Edit the files in this directory, and run `nix flake check` here.
-2. A release is a tag `toolchain-vN` on `main`.
+2. A release is a tag `toolchain-vN` on `main`. The steps are in
+   [Release a component](../docs/how-to/release-a-component.md).

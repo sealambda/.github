@@ -1,9 +1,0 @@
-# Markdown lint settings of this repository. Tables and code blocks keep long
-# lines; MD060 (table pipe spacing) is off because the tables are compact;
-# the pull request template starts with a section label, not a heading.
-config:
-  MD013:
-    tables: false
-    code_blocks: false
-  MD060: false
-  MD041: false

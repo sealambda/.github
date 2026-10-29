@@ -1,5 +1,26 @@
 {
   "nodes": {
+    "docs-kit": {
+      "inputs": {
+        "nixpkgs": [
+          "docs-kit",
+          "toolchain",
+          "nixpkgs"
+        ],
+        "toolchain": [
+          "toolchain"
+        ]
+      },
+      "locked": {
+        "path": "./docs-kit",
+        "type": "path"
+      },
+      "original": {
+        "path": "./docs-kit",
+        "type": "path"
+      },
+      "parent": []
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1793136825,
@@ -18,6 +39,7 @@
     },
     "root": {
       "inputs": {
+        "docs-kit": "docs-kit",
         "nixpkgs": [
           "toolchain",
           "nixpkgs"

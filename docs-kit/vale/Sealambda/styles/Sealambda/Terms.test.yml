@@ -1,0 +1,22 @@
+# Cases for Terms.yml. Run them with `vale test` (docs-kit/README.md).
+- name: flags every synonym
+  rule: Terms.yml
+  input: |
+    Open a merge request. Update the lockfile. Enter the dev shell.
+    Do not edit the lock-file or leave the devshell.
+  contains:
+    - "Use 'pull request' instead of 'merge request'"
+    - "Use 'lock file' instead of 'lockfile'"
+    - "Use 'development shell' instead of 'dev shell'"
+    - "Use 'lock file' instead of 'lock-file'"
+    - "Use 'development shell' instead of 'devshell'"
+
+- name: the chosen terms pass
+  rule: Terms.yml
+  input: Open a pull request, update the lock file and enter the development shell.
+  want: ""
+
+- name: code is not prose
+  rule: Terms.yml
+  input: The file is `lockfile`.
+  want: ""

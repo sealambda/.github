@@ -1,0 +1,54 @@
+# Cases for Headings.yml. Run them with `vale test` (docs-kit/README.md).
+- name: flags a heading in title case
+  rule: Headings.yml
+  input: |
+    # Run the Docs Check
+  contains: "'Run the Docs Check' should use sentence-style capitalization"
+
+- name: accepts a heading in sentence case
+  rule: Headings.yml
+  input: |
+    # Run the docs check
+  want: ""
+
+- name: accepts the title-case headings of MADR
+  rule: Headings.yml
+  input: |
+    # Use a short title
+
+    ## Context and Problem Statement
+
+    ## Decision Drivers
+
+    ## Considered Options
+
+    ## Decision Outcome
+
+    ## Pros and Cons of the Options
+
+    ## More Information
+  want: ""
+
+- name: accepts the names Git, Nix and NixOS
+  rule: Headings.yml
+  input: |
+    # Install Nix on NixOS with Git
+  want: ""
+
+- name: accepts the acronyms that the vocabulary does not hold
+  about: CA, CD, GPG, ID, IP, OS and SSH are also a command or a plain word in lower case.
+  rule: Headings.yml
+  input: |
+    # Use SSH with the OS ID of a CA in CD
+
+    ## Sign a tag with GPG on an IP address
+  want: ""
+
+- name: accepts the names Elixir, Markdown, Prettier and Vale
+  about: Each is also a plain word in lower case, so the vocabulary does not hold it.
+  rule: Headings.yml
+  input: |
+    # Format Markdown with Prettier
+
+    ## Run Vale on an Elixir project
+  want: ""

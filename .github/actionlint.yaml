@@ -1,0 +1,10 @@
+# actionlint 1.7.12 does not know the properties `workflow_repository` and
+# `workflow_sha` of the `job` context. GitHub documents them for the jobs of a
+# reusable workflow, and docs.yml uses them to fetch the docs kit at the commit
+# of the workflow file:
+# https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context
+# Remove this file when actionlint lists the properties.
+paths:
+  .github/workflows/docs.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'

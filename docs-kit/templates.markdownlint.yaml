@@ -1,0 +1,12 @@
+# The Markdown lint settings for template files: the base configuration with
+# one rule off.
+#
+# A template (an issue form body, a pull request template, a decision record
+# template) is text for a person to fill in. It often starts with a label or a
+# heading of a lower level, not with a level-1 heading, so MD041 does not
+# apply. `docs-check` lints the template files with this file, and every other
+# document with base.markdownlint.yaml. This file holds no file pattern: the
+# patterns that select the templates are in kit.nix.
+extends: ./base.markdownlint.yaml
+
+MD041: false

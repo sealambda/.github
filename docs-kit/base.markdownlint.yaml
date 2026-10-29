@@ -1,0 +1,27 @@
+# The Markdown lint settings of the organization, for markdownlint-cli2
+# (docs-kit/README.md, "Markdown lint").
+#
+# Prettier formats Markdown in every repository, so this file turns off no
+# layout rule by hand: `markdownlint/style/prettier` is the style that the
+# markdownlint project publishes for this case. It disables the rules about
+# list indent, blank lines, line length and similar layout. The rules that stay
+# on check what a formatter cannot decide: heading levels, links, the language
+# of a fenced code block and duplicate headings.
+#
+# This is a plain markdownlint configuration, so that
+# templates.markdownlint.yaml can extend it. A repository uses the file with
+#   markdownlint-cli2 --config <this file> <globs>
+# and adds its own `.markdownlint-cli2.yaml` for the exceptions of its tree.
+# markdownlint-cli2 reads that file after this one, and the two merge.
+extends: markdownlint/style/prettier
+
+# MD060 checks the pipes of a table. Prettier aligns every table, and the
+# prettier style of markdownlint 0.41.1 does not list MD060, so a formatter
+# and a linter would check the same layout twice.
+MD060: false
+
+# A heading may repeat under another parent, as "Consequences" does in each
+# option of a decision record. The same heading twice under one parent is
+# still an error.
+MD024:
+  siblings_only: true

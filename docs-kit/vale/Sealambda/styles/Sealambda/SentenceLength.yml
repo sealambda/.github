@@ -1,0 +1,18 @@
+# A sentence has at most 25 words. Simplified Technical English (ASD-STE100)
+# sets this limit for a descriptive sentence, and CONTRIBUTING.md asks for
+# short sentences.
+#
+# This rule extends the Microsoft rule SentenceLength, which allows 30 words
+# and has level suggestion. A word is a run of characters between spaces, so a
+# link or a code span counts as the words it holds.
+#
+# The level is suggestion. A long sentence is often right: a definition, a
+# list in running text, a quotation. The limit is a target for an editor, not
+# a gate.
+# Tests: SentenceLength.test.yml.
+extends: Microsoft.SentenceLength
+message: "Write at most 25 words in a sentence. This sentence has %s."
+link: https://learn.microsoft.com/en-us/style-guide/word-choice/use-simple-words-concise-sentences
+level: suggestion
+max: 25
+token: '[^\s]+'

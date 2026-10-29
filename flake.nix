@@ -5,8 +5,8 @@
 # it also checks that the lock files of the flakes below this one are
 # current. CI runs it (.github/workflows/ci.yml).
 #
-# The toolchain flake in toolchain/ is an input, as in any consumer, so this
-# repository tests the toolchain the way a consumer uses it.
+# The subflakes in toolchain/ and docs-kit/ are inputs, as in any consumer, so
+# this repository tests them the way a consumer uses them.
 {
   description = "The quality gate of sealambda/.github";
 
@@ -14,6 +14,10 @@
     toolchain.url = "path:./toolchain";
     nixpkgs.follows = "toolchain/nixpkgs";
     treefmt-nix.follows = "toolchain/treefmt-nix";
+    docs-kit = {
+      url = "path:./docs-kit";
+      inputs.toolchain.follows = "toolchain";
+    };
   };
 
   outputs =
@@ -22,6 +26,7 @@
       toolchain,
       nixpkgs,
       treefmt-nix,
+      docs-kit,
     }:
     let
       inherit (nixpkgs) lib;
@@ -38,6 +43,7 @@
         treefmt-nix.lib.evalModule pkgs {
           imports = [
             toolchain.lib.treefmtModules.default
+            docs-kit.lib.treefmtModules.default
             ./treefmt.nix
           ];
         };
@@ -56,6 +62,7 @@
             treefmt.wrapper
             pkgs.lefthook
             toolchain.packages.${pkgs.stdenv.hostPlatform.system}.pnpm-only-lint
+            docs-kit.packages.${pkgs.stdenv.hostPlatform.system}.docs-check
           ]
           ++ lib.attrValues treefmt.programs;
           # Installs the hook of lefthook.yml. It is idempotent, and it keeps
@@ -82,6 +89,15 @@
           # Every formatter and linter, on the tracked files; it fails on a
           # finding or on a file that a formatter would change.
           formatting = (treefmtFor pkgs).config.build.check self;
+
+          # The docs check of the docs kit (Vale, markdownlint-cli2 and
+          # lychee, offline) on every Markdown file of the repository. The
+          # kit's templates hold placeholders, so Vale and lychee skip them.
+          # `docs-kit.lib.mkCheck` has no option for template patterns, so
+          # this check calls `docs-check` itself.
+          docs = pkgs.runCommandLocal "docs" {
+            nativeBuildInputs = [ docs-kit.packages.${system}.docs-check ];
+          } ''docs-check --template 'docs-kit/templates/*' ${self} && touch "$out"'';
 
           # The repository uses pnpm only. The lint reads the files that Git
           # tracks, and a flake's source has no .git: the build copies the
@@ -110,14 +126,12 @@
           # shell (ci.yml).
           dev-shell-path = toolchain.lib.devShellPathCheck pkgs (devShellFor pkgs);
 
-          # The root and toolchain lock files lock the same toolchain inputs,
-          # and the comparison itself detects a difference.
-          toolchain-lock-sync = import ./nix/toolchain-lock-sync.nix {
+          # The root, toolchain and docs-kit lock files lock the same inputs,
+          # and the comparison has its own cases (nix/lock-sync.nix).
+          lock-sync = import ./nix/lock-sync.nix {
             inherit pkgs;
-            rootLock = lib.importJSON ./flake.lock;
-            toolchainLock = lib.importJSON ./toolchain/flake.lock;
+            root = self;
           };
-          toolchain-lock-sync-tests = import ./nix/toolchain-lock-sync-tests.nix { inherit pkgs; };
 
           # The hook configuration is valid.
           lefthook-validate = import ./nix/lefthook-validate.nix {
@@ -164,9 +178,18 @@
             inherit pkgs;
             workflow = ./.github/workflows/ci.yml;
           };
+
+          # The shell steps of docs.yml and links.yml, run with fake programs.
+          docs-workflow-steps = import ./nix/docs-workflow-steps.nix {
+            inherit pkgs;
+            root = self;
+          };
         }
-        # The toolchain's own checks; a root check does not run them otherwise.
+        # The subflakes' own checks; a root check does not run them otherwise.
         // lib.mapAttrs' (name: lib.nameValuePair "toolchain-${name}") toolchain.checks.${system}
+        # The kit has no check of its own documents: they link to pages outside
+        # its flake source, so the root `docs` check above reads them.
+        // lib.mapAttrs' (name: lib.nameValuePair "docs-kit-${name}") docs-kit.checks.${system}
       );
     };
 }

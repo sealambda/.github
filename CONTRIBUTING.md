@@ -33,7 +33,7 @@ blocks a push or a merge. Everyone follows the rules by hand.
 - Track planned work in GitHub Issues. Put each issue on the organization's
   project board, in a milestone when a date or a release depends on it.
 - Label an issue `planned` when someone has agreed to do it.
-- Do not keep TODO files or TODO lists in the repository. File an issue.
+- Do not keep `TODO` files or `TODO` lists in the repository. File an issue.
 - Close an issue from the pull request that does the work: `Fixes #N` in the
   pull request body.
 

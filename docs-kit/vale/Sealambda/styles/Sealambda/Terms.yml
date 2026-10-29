@@ -1,0 +1,21 @@
+# One term for one concept: the organization's choice among synonyms. A key is
+# the word to avoid, and the value is the word to use. A key is a pattern, so
+# "a|b" lists two spellings.
+#
+# Add a pair only for a concept that the documents of the organization name
+# in two ways. Keep a word out of the list when it has another true meaning:
+# "merge" and "request" are fine on their own. The match ignores case, and code
+# is not checked. Names of products belong to the vocabulary
+# (config/vocabularies/Sealambda/accept.txt), not here.
+# Tests: Terms.test.yml.
+extends: substitution
+message: "Use '%s' instead of '%s'."
+link: https://github.com/sealambda/.github/blob/main/docs-kit/README.md#house-rules
+level: error
+ignorecase: true
+action:
+  name: replace
+swap:
+  dev shell|devshell|dev-shell: development shell
+  lockfile|lock-file: lock file
+  merge request: pull request
