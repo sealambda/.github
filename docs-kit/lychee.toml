@@ -1,0 +1,56 @@
+# The link check of the organization, for lychee (docs-kit/README.md,
+# "Link check"). The check of the docs kit runs it offline: only the links to
+# local files and their fragments. `docs-check --online` runs it online, with
+# the cache and, if the environment has one, a GitHub token (the reusable
+# workflow .github/workflows/docs.yml runs it for the links to other sites).
+# Every key names the reason for its value.
+
+# Anchors of a heading, such as `page.md#section`. A text fragment
+# (`#:~:text=`) needs a browser, so the check leaves it out.
+include_fragments = "anchor-only"
+
+# A link that worked in the last day is not requested again. Only the online
+# run uses the cache, which it keeps in `.lycheecache`. The status 429 is
+# never cached: it says "ask later" and not "this link works".
+cache = true
+max_cache_age = "1d"
+cache_exclude_status = "429"
+
+# Requests to one host are slow and few, so that a host with a rate limit, such
+# as github.com, does not answer with an error. The default is 10 requests at
+# once, 50 ms apart.
+host_concurrency = 4
+host_request_interval = "250ms"
+
+# A request that fails for a network reason is repeated at most twice, at least
+# 2 seconds apart. A link that is still down after that is down.
+max_retries = 2
+retry_wait_time = 2
+timeout = 30
+
+# The status 429 (too many requests) is a rate limit of the host and does not
+# prove a dead link. The other codes are the default of lychee.
+accept = ["100..=103", "200..=299", "429"]
+
+# Addresses that no reader outside the machine can open. The first key
+# excludes loopback addresses and localhost, the second private networks, and
+# the third link-local addresses. Documents use them in examples of commands.
+exclude_loopback = true
+exclude_private = true
+exclude_link_local = true
+
+# This file names no input files. `docs-check --online` and `docs-check` give
+# lychee the list of pages, so the templates (docs-check.sh) are left out in
+# one place, and hidden directories, such as `.github`, are read.
+
+# Each pattern is a regular expression for a URL that is correct and cannot be
+# checked.
+exclude = [
+  # RFC 2606 section 3 reserves example.com, example.net and example.org, and
+  # RFC 6761 section 6.5 reserves them with all their subdomains. A name can
+  # have a port.
+  '(?i)^https?://([a-z0-9-]+\.)*example\.(com|net|org)(:[0-9]+)?([/?#]|$)',
+  # RFC 2606 section 2 and RFC 6761 reserve the top-level domains .example,
+  # .invalid, .localhost and .test, with all their subdomains.
+  '(?i)^https?://([a-z0-9-]+\.)*(example|invalid|localhost|test)(:[0-9]+)?([/?#]|$)',
+]
