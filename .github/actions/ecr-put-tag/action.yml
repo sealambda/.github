@@ -1,0 +1,48 @@
+name: ECR tag of a release
+description: >-
+  The registry side of a release, in one operation per step: inspect (assert immutable tags and
+  look for the tag of the commit), put (tag an image that was pushed by digest) and report (check
+  the digest and write the job summary). Details: ecr-put-tag.sh.
+
+inputs:
+  operation:
+    description: "`inspect`, `put` or `report`."
+    required: true
+  repository:
+    description: The name of the ECR repository. Required for inspect and put.
+    default: ""
+  tag:
+    description: The tag of the image, build-<sha>.
+    required: true
+  digest:
+    description: The digest of the image to tag (put) or to report (report).
+    default: ""
+  image:
+    description: The image without a tag, for the summary. Empty in a dry run.
+    default: ""
+  dry-run:
+    description: "`true` or `false`; the summary says so (report)."
+    default: "false"
+
+outputs:
+  digest:
+    description: >-
+      inspect: the digest under the tag, empty when the tag is free. put: the digest under the tag
+      after the put. report: the checked digest.
+    value: ${{ steps.run.outputs.digest }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run the operation
+      id: run
+      shell: bash
+      env:
+        OPERATION: ${{ inputs.operation }}
+        REPOSITORY: ${{ inputs.repository }}
+        TAG: ${{ inputs.tag }}
+        DIGEST: ${{ inputs.digest }}
+        IMAGE: ${{ inputs.image }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        COMMIT_SHA: ${{ github.sha }}
+      run: bash "${GITHUB_ACTION_PATH}/ecr-put-tag.sh"

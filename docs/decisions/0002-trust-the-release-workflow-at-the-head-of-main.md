@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-10-28
 decision-makers: the code owners of this repository
 ---
@@ -137,11 +137,6 @@ What protects what:
   organization has not set up signing.
 
 ## More Information
-
-The status is `proposed` because this tree does not yet hold the release
-workflow, the composite actions and the tests that the Decision Outcome and the
-Confirmation describe. The change that adds them sets the status to
-`accepted`.
 
 The decision does not cover the definition of the role and the registry
 repositories. They live outside this repository, and they must match the trust

@@ -48,25 +48,57 @@
           ];
         };
 
-      # The test of a composite action of this repository, run in the build
-      # sandbox. The test script sits next to the action's script
-      # (`.github/actions/<name>/<name>.test.sh`) and fakes every command that
-      # the action runs. `bash` is the Bash of Nix, because the scripts need
-      # Bash 4.4 or later and macOS ships 3.2.
+      # The tests of a composite action of this repository, run in the build
+      # sandbox. Every test script sits next to the action's script
+      # (`.github/actions/<name>/*.test.sh`) and fakes every command that the
+      # action runs; the check runs all of them and fails when one fails. `bash`
+      # is the Bash of Nix, because the scripts need Bash 4.4 or later and
+      # macOS ships 3.2.
       #   name   the action's directory name
-      #   tools  packages that the test itself runs, besides Bash
+      #   tools  packages that the tests themselves run, besides Bash
+      #   files  paths of the repository, besides the action's directory, that
+      #          the tests read (a shared test library)
+      #   env    environment variables of the tests, by name
       actionTest =
-        pkgs: name: tools:
+        pkgs: name:
+        {
+          tools ? [ ],
+          files ? [ ],
+          env ? { },
+        }:
         let
+          # The repository files that the tests read, as a store path: the
+          # action's directory and `files`. The sandbox sees nothing else.
           source = lib.fileset.toSource {
             root = ./.;
-            fileset = ./.github/actions/${name};
+            fileset = lib.fileset.unions ([ ./.github/actions/${name} ] ++ files);
           };
         in
-        pkgs.runCommandLocal name { nativeBuildInputs = [ pkgs.bash ] ++ tools; } ''
-          bash ${source}/.github/actions/${name}/${name}.test.sh
+        pkgs.runCommandLocal name (env // { nativeBuildInputs = [ pkgs.bash ] ++ tools; }) ''
+          # Run every test before failing, so that one failing test does not
+          # hide the result of the others (the grid test, for one).
+          status=0
+          for test in ${source}/.github/actions/${name}/*.test.sh; do
+            bash "$test" || status=1
+          done
+          if [ "$status" -ne 0 ]; then
+            echo "at least one test of ${name} failed" >&2
+            exit 1
+          fi
           touch "$out"
         '';
+
+      # The tests of the release actions share this library of fake `aws` and
+      # `curl` commands.
+      releaseTestLibrary = ./scripts/ci/release/lib.sh;
+
+      # The programs that the release tests run besides Bash.
+      releaseTools = pkgs: [
+        pkgs.coreutils
+        pkgs.diffutils
+        pkgs.gnugrep
+        pkgs.jq
+      ];
 
       # The development shell for one package set.
       devShellFor =
@@ -147,8 +179,26 @@
 
           # The composite actions of gate.yml, against fake `nix`, `mix` and
           # `docker`.
-          mix-audit = actionTest pkgs "mix-audit" [ pkgs.git ];
-          docker-pull = actionTest pkgs "docker-pull" [ ];
+          mix-audit = actionTest pkgs "mix-audit" { tools = [ pkgs.git ]; };
+          docker-pull = actionTest pkgs "docker-pull" { };
+
+          # The composite actions of the release, against fake `aws` and
+          # `curl`. check-trigger also runs the grid test of the
+          # repository-name rule, against the verdicts of the AWS patterns
+          # that nix/name-grid-oracle.nix computes.
+          check-trigger = actionTest pkgs "check-trigger" {
+            tools = releaseTools pkgs;
+            files = [ releaseTestLibrary ];
+            env.NAME_GRID_EXPECTED = import ./nix/name-grid-oracle.nix { inherit pkgs; };
+          };
+          head-of-main = actionTest pkgs "head-of-main" {
+            tools = releaseTools pkgs;
+            files = [ releaseTestLibrary ];
+          };
+          ecr-put-tag = actionTest pkgs "ecr-put-tag" {
+            tools = releaseTools pkgs;
+            files = [ releaseTestLibrary ];
+          };
 
           # The development shell puts no package manager other than pnpm on
           # its PATH. The check builds the PATH from the shell's packages; it
