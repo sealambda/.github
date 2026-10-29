@@ -1,0 +1,133 @@
+# The gate of this repository: scripts/check.sh, the one list of the gate's
+# commands (flake.nix lists the checks). It runs on each system that the
+# toolchain supports, because the `version-line` check compares the versions
+# of the tool packages of its own system only. A draft pull request skips it
+# (CONTRIBUTING.md, section 5).
+#
+# The job `ci` is the only status that a ruleset needs to require: it fails
+# when a job above it failed or was cancelled, and passes when they were
+# skipped, so that a ruleset does not wait for a job that a draft skipped.
+#
+# This repository is public, so the jobs run on GitHub-hosted runners, which
+# are free for it. A self-hosted runner would run code from any fork.
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+# A pull request has one group, so a newer push cancels the older run. Each
+# commit on main has its own group: GitHub cancels a run that waits in a
+# group when a newer one joins it, and one group for main would leave a
+# commit without a result.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: check (${{ matrix.os }})
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # x86_64-linux, aarch64-linux and aarch64-darwin: the toolchain's
+        # systems. macos-15 is an Apple silicon image; macos-latest moves.
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The action's default `github_access_token` is the job token. It writes
+      # that token to `~/.netrc` and the Nix configuration, where the scripts
+      # of the checked tree could read it for the rest of the job. An empty
+      # value keeps it off the disk; the next step supplies it to Nix only.
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@9f63be77f412a248c9d9a65a4c82cf066cdf8f0c # v35
+        with:
+          github_access_token: ""
+
+      # GitHub limits the downloads of the flake inputs without a token. This
+      # step fetches the inputs with the job token in its environment and
+      # runs no script of the checked tree: Nix reads the tree's flake.nix
+      # but not the environment. The later steps find the locked inputs in
+      # the Nix store and get no token.
+      - name: Fetch the flake inputs
+        env:
+          NIX_CONFIG: access-tokens = github.com=${{ github.token }}
+        run: nix flake archive --no-update-lock-file
+
+      - name: Run the gate
+        run: scripts/check.sh
+
+      # The `dev-shell-path` check builds the PATH of the shell without its
+      # `shellHook`. This step reads the PATH of the real shell, which covers
+      # the hook, and looks each command up in it. The names are the
+      # toolchain's one list. The check `ci-dev-shell-path-step` runs this
+      # step's text against a fake `nix`; keep these rules:
+      #
+      # - `nix develop` appends the PATH of the host, and the hosted images
+      #   ship npm and yarn. `--ignore-environment` drops it. The shell hook
+      #   then finds no Git, and its `lefthook install` prints a failure
+      #   message in the log. That message is expected here.
+      # - A list or a PATH that failed to load must fail the step, not pass it
+      #   with nothing checked: the commands run as plain assignments, and
+      #   empty results are errors. A process substitution would hide the exit
+      #   status of `nix eval`.
+      # - The macOS image has Bash 3.2 as `bash`: no `mapfile`.
+      # - The shell hook may print before the command runs, so only the last
+      #   line of the output is the PATH.
+      - name: Check that the development shell has no other package manager
+        run: |
+          names="$(
+            nix eval --raw --file toolchain/package-managers.nix commands \
+              --apply 'builtins.concatStringsSep "\n"'
+          )"
+          shell_path="$(
+            nix develop --no-update-lock-file --ignore-environment \
+              --command printenv PATH | tail -n 1
+          )"
+          if [[ -z "${names}" || -z "${shell_path}" ]]; then
+            echo "The list of commands or the PATH of the shell is empty." >&2
+            exit 1
+          fi
+          status=0
+          while IFS= read -r name; do
+            if found="$(PATH="${shell_path}" type -P "${name}")"; then
+              echo "${found}: the development shell must not provide ${name}" >&2
+              status=1
+            fi
+          done <<<"${names}"
+          exit "${status}"
+
+  ci:
+    name: ci
+    needs: [check]
+    # Runs after a failure or a cancellation too. Without this, a failed job
+    # would make this job skip, and GitHub counts a skipped required status as
+    # passed.
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    env:
+      NEEDS: ${{ toJSON(needs) }}
+    steps:
+      - name: Fail unless every job succeeded or was skipped
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"${NEEDS}"
+          jq -e 'all(.[]; .result == "success" or .result == "skipped")' <<<"${NEEDS}" >/dev/null

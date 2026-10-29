@@ -1,0 +1,25 @@
+# Git hooks. `nix develop` installs them.
+#
+# pre-commit runs treefmt, with every formatter and linter, on the staged
+# files. A formatter writes its fix to the work tree and the commit stops;
+# review the change, stage it and commit again. The hook never stages a file
+# (no `stage_fixed`): staging a fix into a partly staged file risks the
+# unstaged work, and a second `git add` costs little.
+# It reads the work-tree copy of each staged file, so a partly staged file is
+# checked with its unstaged changes; CI checks the commit itself.
+#
+# The hook is the fast part of the gate. The merge decision is CI, which runs
+# scripts/check.sh; run that script to get the same result locally. A push
+# runs no hook.
+#
+# The hook runs lefthook from the Nix store path that `lefthook install`
+# wrote into it, or else from PATH. When neither has lefthook (the store path
+# was garbage-collected, and the terminal or editor is outside the
+# development shell), lefthook skips every job and the commit proceeds
+# unchecked, unless this option is set. With it, the hook fails.
+assert_lefthook_installed: true
+
+pre-commit:
+  jobs:
+    - name: treefmt
+      run: nix fmt -- --fail-on-change {staged_files}
