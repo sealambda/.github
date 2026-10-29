@@ -1,0 +1,19 @@
+name: Pull a Docker image
+description: >-
+  Pull an image with `docker pull` and retry a failed pull up to five times, with a jittered
+  exponential wait of 30 seconds in total at most. The next `docker run` of the image then finds it
+  in the local store.
+
+inputs:
+  image:
+    description: The image reference to pull, with its digest.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Pull the image
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: bash "${GITHUB_ACTION_PATH}/docker-pull.sh" "${IMAGE}"

@@ -67,7 +67,9 @@ the PATH of that shell. It reports each name that it finds. It exits 1 if it
 found any, or if the list of commands or the PATH is empty, else 0. A second job
 calls the reusable workflow `docs.yml`, as a repository that uses the docs kit
 does, and a scheduled workflow (`links.yml`) requests the links to other sites.
-Run
+Two more jobs call the reusable workflows `lint-workflows.yml` and
+`secrets.yml`. They run gitleaks on the Git history and the online audits of
+zizmor, which have no local equivalent. Run
 `git rebase -x scripts/check.sh <base>` to check each commit of a series.
 
 - `nix develop` opens a shell with the same tools, and installs the Git hook
@@ -95,6 +97,19 @@ the subflake below it only when it is created or when that command runs, so
 the locks drift apart otherwise. The check `lock-sync` fails until the three
 locks agree. A tool that updates the locks automatically must update all
 three in one change.
+
+## Reusable workflows
+
+`.github/workflows/` also holds the organization's reusable workflows:
+`gate.yml`, `lint-workflows.yml` and `secrets.yml`. `ci.yml` calls
+`lint-workflows.yml` and `secrets.yml` on this repository, next to the jobs
+of the gate. It does not call `gate.yml`: `scripts/check.sh` is the gate of
+this repository.
+
+- [Reusable workflows](docs/reference/workflows.md): the inputs, jobs and
+  permissions of each workflow, and the entry point of the gate.
+- [Call the reusable workflows](docs/how-to/call-the-reusable-workflows.md):
+  connect a repository to them.
 
 ## More
 

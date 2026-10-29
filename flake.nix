@@ -48,6 +48,26 @@
           ];
         };
 
+      # The test of a composite action of this repository, run in the build
+      # sandbox. The test script sits next to the action's script
+      # (`.github/actions/<name>/<name>.test.sh`) and fakes every command that
+      # the action runs. `bash` is the Bash of Nix, because the scripts need
+      # Bash 4.4 or later and macOS ships 3.2.
+      #   name   the action's directory name
+      #   tools  packages that the test itself runs, besides Bash
+      actionTest =
+        pkgs: name: tools:
+        let
+          source = lib.fileset.toSource {
+            root = ./.;
+            fileset = ./.github/actions/${name};
+          };
+        in
+        pkgs.runCommandLocal name { nativeBuildInputs = [ pkgs.bash ] ++ tools; } ''
+          bash ${source}/.github/actions/${name}/${name}.test.sh
+          touch "$out"
+        '';
+
       # The development shell for one package set.
       devShellFor =
         pkgs:
@@ -125,6 +145,11 @@
                 touch "$out"
               '';
 
+          # The composite actions of gate.yml, against fake `nix`, `mix` and
+          # `docker`.
+          mix-audit = actionTest pkgs "mix-audit" [ pkgs.git ];
+          docker-pull = actionTest pkgs "docker-pull" [ ];
+
           # The development shell puts no package manager other than pnpm on
           # its PATH. The check builds the PATH from the shell's packages; it
           # does not run the `shellHook`, which the CI step reads from the real
@@ -169,10 +194,12 @@
           };
 
           # The job token stays off the disk and out of every step except the
-          # one that fetches the flake inputs.
+          # one that fetches the flake inputs of ci.yml. gate.yml gives it to
+          # no step.
           ci-nix-token = import ./nix/ci-nix-token-tests.nix {
             inherit pkgs;
             workflow = ./.github/workflows/ci.yml;
+            gateWorkflow = ./.github/workflows/gate.yml;
           };
 
           # The `ci` status keeps its structure: the concurrency groups, the

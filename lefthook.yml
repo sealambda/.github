@@ -9,8 +9,9 @@
 # checked with its unstaged changes; CI checks the commit itself.
 #
 # The hook is the fast part of the gate. The merge decision is CI, which runs
-# scripts/check.sh; run that script to get the same result locally. A push
-# runs no hook.
+# scripts/check.sh; run that script to get the same result locally. CI also
+# runs gitleaks on the Git history and the online audits of zizmor, which have
+# no local equivalent. A push runs no hook.
 #
 # The hook runs lefthook from the Nix store path that `lefthook install`
 # wrote into it, or else from PATH. When neither has lefthook (the store path

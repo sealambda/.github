@@ -1,0 +1,119 @@
+name: Gate
+
+# The full gate of the calling repository on one commit, and the dependency audits that every
+# release needs: OSV-Scanner on every lock file, and `mix hex.audit` in every Mix project.
+# Any repository can call it from its own workflows. It checks the commit `github.sha` of the
+# caller. Inputs, the entry point contract and the permissions: docs/reference/workflows.md#gate.
+#
+#   entry-point   scripts/ci/gate.sh of the caller, at the commit
+#   osv-scanner   every lock file that OSV-Scanner reads
+#   hex-audit     every Mix project (a tracked mix.lock); nothing to do without one
+#
+# The jobs run in parallel. The caller's job fails when one of them fails. The first job states the
+# `runs-on` expression and names it with the YAML anchor `&runner`; the other jobs use `*runner`.
+# GitHub has no workflow-level value for `runs-on`. The rule that the expression states is in
+# docs/reference/workflows.md#rules-for-every-workflow.
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: >-
+          The runner of every job, as JSON: one label in quotes, or an array of labels. A public
+          repository always runs on GitHub-hosted runners, whatever this input says.
+        type: string
+        default: '"ubuntu-24.04"'
+      timeout-minutes:
+        description: The time limit of the job that runs scripts/ci/gate.sh.
+        type: number
+        default: 60
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  entry-point:
+    name: scripts/ci/gate.sh
+    runs-on: &runner ${{ github.event.repository.private && fromJSON(inputs.runs-on) || 'ubuntu-24.04' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    steps:
+      # All of history: an entry point can compare with its main branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      # The organization's self-hosted runners have Nix; a GitHub-hosted runner does not. The action
+      # writes its github_access_token input (default: the job token) to the Nix configuration and
+      # to ~/.netrc, where the entry point could read it. The empty input keeps the token off the
+      # disk (docs/reference/workflows.md#the-entry-point).
+      - name: Install Nix
+        if: runner.environment == 'github-hosted'
+        uses: nixbuild/nix-quick-install-action@9f63be77f412a248c9d9a65a4c82cf066cdf8f0c # v35
+        with:
+          github_access_token: ""
+      - name: Run the repository's gate
+        run: |
+          if [[ ! -x scripts/ci/gate.sh ]]; then
+            echo "::error file=scripts/ci/gate.sh::The repository has no executable scripts/ci/gate.sh (docs/reference/workflows.md#the-entry-point)."
+            exit 1
+          fi
+          scripts/ci/gate.sh
+
+  osv-scanner:
+    name: osv-scanner
+    runs-on: *runner
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # The image of Google's osv-scanner-action, pinned by digest. The action itself names the image
+    # by a tag that can move, and its documentation says not to use it directly; the project's
+    # reusable workflow uploads to code scanning, which a private repository on GitHub Free does
+    # not have.
+    env:
+      OSV_SCANNER_IMAGE: ghcr.io/google/osv-scanner-action:v2.7.0@sha256:d54770fe0b09493894e76a02aaed9f51a0513fa57c5186452a755d257b0068a6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Pull the image
+        uses: $/.github/actions/docker-pull
+        with:
+          image: ${{ env.OSV_SCANNER_IMAGE }}
+      # The image's entry point (exit_code_redirect.sh, in /root) takes the arguments of
+      # osv-scanner as its last argument, one per line, as the action passes them. A repository
+      # without a lock file passes (--allow-no-lockfiles). The container needs the network (the
+      # OSV database) and nothing else: it runs without capabilities and cannot gain any.
+      - name: Scan the lock files
+        run: |
+          docker run --rm --read-only --tmpfs /tmp \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --volume "${PWD}:/repo:ro" --workdir /repo \
+            "${OSV_SCANNER_IMAGE}" $'--allow-no-lockfiles\n--recursive\n./'
+
+  hex-audit:
+    name: mix hex.audit
+    runs-on: *runner
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install Nix
+        if: runner.environment == 'github-hosted'
+        uses: nixbuild/nix-quick-install-action@9f63be77f412a248c9d9a65a4c82cf066cdf8f0c # v35
+        with:
+          github_access_token: ""
+      # Finds the Mix projects, audits each one in the dev shell of the caller's flake, and reports
+      # every failing directory. It needs Elixir and Hex 2.5.1 or later in that shell for advisories
+      # and ignores.
+      - name: Audit every Mix project
+        uses: $/.github/actions/mix-audit

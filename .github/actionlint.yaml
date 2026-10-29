@@ -1,10 +1,28 @@
-# actionlint 1.7.12 does not know the properties `workflow_repository` and
-# `workflow_sha` of the `job` context. GitHub documents them for the jobs of a
-# reusable workflow, and docs.yml uses them to fetch the docs kit at the commit
-# of the workflow file:
+# The ignores of actionlint 1.7.12, one entry per file and message, so that every other finding of
+# actionlint in these files still fails. Remove an entry when its cause is gone, and review this file
+# at each bump of actionlint (.github/workflows/lint-workflows.yml and the Nix lock).
+#
+# docs.yml: actionlint does not know the properties `workflow_repository` and `workflow_sha` of the
+# `job` context. GitHub documents them for the jobs of a reusable workflow, and docs.yml uses them to
+# fetch the docs kit at the commit of the workflow file:
 # https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context
-# Remove this file when actionlint lists the properties.
+# Remove the entry when actionlint lists the properties.
+#
+# gate.yml, lint-workflows.yml and secrets.yml: actionlint rejects the self-repository syntax `$/`
+# in the `uses:` of a step ("ref is missing", rhysd/actionlint#711). GitHub resolves `$/` against
+# the repository of the workflow file at the running commit, so a composite action of this
+# repository works in a repository that calls the workflow. `./` would resolve against the calling
+# repository instead. Remove the entries when actionlint accepts `$/` (pull request #732).
 paths:
   .github/workflows/docs.yml:
     ignore:
       - 'property "workflow_(repository|sha)" is not defined in object type'
+  .github/workflows/gate.yml:
+    ignore:
+      - 'specifying action "\$/\.github/actions/(docker-pull|mix-audit)" in invalid format because ref is missing'
+  .github/workflows/lint-workflows.yml:
+    ignore:
+      - 'specifying action "\$/\.github/actions/docker-pull" in invalid format because ref is missing'
+  .github/workflows/secrets.yml:
+    ignore:
+      - 'specifying action "\$/\.github/actions/docker-pull" in invalid format because ref is missing'

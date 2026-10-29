@@ -1,11 +1,14 @@
-# The gate of this repository has two jobs. `check` runs scripts/check.sh, the
+# The gate of this repository has four jobs. `check` runs scripts/check.sh, the
 # one list of the gate's commands (flake.nix lists the checks), on each system
 # that the toolchain supports, because the `version-line` check compares the
 # versions of the tool packages of its own system only. It includes the docs
 # check, offline, in the build sandbox. `docs` calls the reusable workflow
-# docs.yml the way a caller does, and so it is the test of that workflow. The
-# links to other sites are not part of either job: the scheduled workflow
-# links.yml requests them. A draft pull request skips both jobs
+# docs.yml the way a caller does, and so it is the test of that workflow.
+# `lint-workflows` (actionlint, and zizmor with its online audits) and
+# `secrets` (gitleaks on the Git history) call the reusable workflows of the
+# same names. This repository does not call gate.yml: scripts/check.sh is its
+# gate. The links to other sites are not part of any job: the scheduled
+# workflow links.yml requests them. A draft pull request skips every job
 # (CONTRIBUTING.md, "Pull requests").
 #
 # The job `ci` is the only status that a ruleset needs to require: it fails
@@ -134,9 +137,26 @@ jobs:
     with:
       templates: "docs-kit/templates/*"
 
+  # The workflow lint of the reusable workflow, on this repository. `./` is
+  # the commit under review; see the ignore of `docs`.
+  lint-workflows:
+    name: Lint workflows
+    if: ${{ !github.event.pull_request.draft }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/lint-workflows.yml # zizmor: ignore[self-repository]
+
+  # The secret scan of the reusable workflow, on this repository.
+  secrets:
+    name: Secrets
+    if: ${{ !github.event.pull_request.draft }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/secrets.yml # zizmor: ignore[self-repository]
+
   ci:
     name: ci
-    needs: [check, docs]
+    needs: [check, docs, lint-workflows, secrets]
     # Runs after a failure or a cancellation too. Without this, a failed job
     # would make this job skip, and GitHub counts a skipped required status as
     # passed.
