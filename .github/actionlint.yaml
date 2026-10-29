@@ -12,9 +12,10 @@
 # self-repository syntax `$/`, the form that GitHub documents for a reference to the repository of
 # the file itself, at the commit of the file, whoever calls it. In the `uses:` of a step it reports
 # "ref is missing" (rhysd/actionlint#711). `./` would resolve against the calling repository
-# instead. release-image.yml also calls three workflows of this repository at the job level, which
-# actionlint reports as "not following the format". Remove the entries when actionlint accepts `$/`
-# (pull request #732, not merged):
+# instead. release-image.yml also calls three workflows of this repository at the job level;
+# actionlint reports that as "not following the format". The calls of ci.yml and links.yml use `./`,
+# which is the same repository there, and so need no entry.
+# Remove the entries when actionlint accepts `$/` (pull request #732, not merged):
 # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_iduses
 paths:
   .github/workflows/docs.yml:

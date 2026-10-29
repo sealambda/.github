@@ -486,6 +486,11 @@ exports the image to a file instead, and outputs the digest of that image. A
 dry run needs no AWS role and no account. Use it to test a caller, or a change
 to this workflow.
 
+A dry run skips every check of `check-trigger`, the repository-name rule
+included. The hub runs its own dry run in the repository `.github`, a name the
+rule refuses. A repository whose name the rule refuses (for example `my__repo`)
+passes a dry run and fails at its first release.
+
 `ci.yml` of this repository runs a dry run on every pull request that is ready
 for review, forks included, with the `Dockerfile` at the root of this
 repository. A pull request from a fork gets no OIDC token, and the dry run

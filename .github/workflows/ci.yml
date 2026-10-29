@@ -1,14 +1,21 @@
-# The gate of this repository has four jobs. `check` runs scripts/check.sh, the
+# The gate of this repository has three jobs. `check` runs scripts/check.sh, the
 # one list of the gate's commands (flake.nix lists the checks), on each system
 # that the toolchain supports, because the `version-line` check compares the
 # versions of the tool packages of its own system only. It includes the docs
 # check, offline, in the build sandbox. `docs` calls the reusable workflow
 # docs.yml the way a caller does, and so it is the test of that workflow.
-# `lint-workflows` (actionlint, and zizmor with its online audits) and
-# `secrets` (gitleaks on the Git history) call the reusable workflows of the
-# same names. This repository does not call gate.yml: scripts/check.sh is its
-# gate. The links to other sites are not part of any job: the scheduled
-# workflow links.yml requests them. A draft pull request skips every job
+# `release-dry-run` calls release-image.yml in dry-run mode on the commit under
+# review: its trigger check, gate.yml (which runs scripts/ci/gate.sh, and so
+# scripts/check.sh), lint-workflows.yml (actionlint, and zizmor with its online
+# audits), secrets.yml (gitleaks on the Git history) and a build of the root
+# Dockerfile. The hub has no standalone job for gate.yml, lint-workflows.yml or
+# secrets.yml: a second job would run each of them twice on the same commit.
+# The gate of `release-dry-run` does repeat the `check` entry for ubuntu-24.04
+# (both run scripts/check.sh). That is accepted: the two jobs run at the same
+# time on free runners, and the matrix must keep proving the three systems
+# whatever the dry run does.
+# The links to other sites are not part of any job: the scheduled workflow
+# links.yml requests them. A draft pull request skips every job
 # (CONTRIBUTING.md, "Pull requests").
 #
 # The job `ci` is the only status that a ruleset needs to require: it fails
@@ -137,26 +144,33 @@ jobs:
     with:
       templates: "docs-kit/templates/*"
 
-  # The workflow lint of the reusable workflow, on this repository. `./` is
-  # the commit under review; see the ignore of `docs`.
-  lint-workflows:
-    name: Lint workflows
+  # The release workflow in dry-run mode, on the commit under review: the
+  # release anchor is executed here, not only linted, so a failure shows in
+  # the pull request and not in the release of a downstream repository. The
+  # call uses `./` for the reason given at the job `docs`; inside
+  # release-image.yml, `$/` names this repository whoever calls it.
+  #
+  # The job has no condition on the origin of the pull request, so a fork
+  # pull request runs it too. GitHub gives such a run a read-only token and no
+  # OIDC token, and the dry run needs neither. `id-token: write` stays,
+  # because the called job `publish` declares it and a call may not grant
+  # less than a called job asks. Whether a fork run starts with this
+  # declaration is not proven; if it fails at start-up, add
+  # `github.event.pull_request.head.repo.full_name == github.repository` to
+  # the `if`.
+  release-dry-run:
+    name: Release dry run
     if: ${{ !github.event.pull_request.draft }}
     permissions:
       contents: read
-    uses: ./.github/workflows/lint-workflows.yml # zizmor: ignore[self-repository]
-
-  # The secret scan of the reusable workflow, on this repository.
-  secrets:
-    name: Secrets
-    if: ${{ !github.event.pull_request.draft }}
-    permissions:
-      contents: read
-    uses: ./.github/workflows/secrets.yml # zizmor: ignore[self-repository]
+      id-token: write # asked by the job `publish` of the called workflow
+    uses: ./.github/workflows/release-image.yml # zizmor: ignore[self-repository]
+    with:
+      dry-run: true
 
   ci:
     name: ci
-    needs: [check, docs, lint-workflows, secrets]
+    needs: [check, docs, release-dry-run]
     # Runs after a failure or a cancellation too. Without this, a failed job
     # would make this job skip, and GitHub counts a skipped required status as
     # passed.
