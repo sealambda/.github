@@ -1,0 +1,179 @@
+name: Docs
+
+# The docs check of the calling repository on one commit: Vale, markdownlint-cli2
+# and lychee (offline) from the docs kit (docs-kit/README.md). With
+# `external-links: true` it also requests the links to other sites with lychee.
+# The kit is the version of this workflow file, so a caller that pins
+# `docs.yml@docs-kit-vN` gets the kit `docs-kit-vN`, and the lychee of the kit's
+# Nix lock runs in both modes.
+#
+# The check of the links to other sites is not part of a pull request check by
+# default: a page of another site that moves would fail every open pull request.
+# This repository runs it on a schedule (links.yml). The online run keeps its
+# results for a day in the cache `.lycheecache`, uses the job token only for the
+# rate limit of github.com, and accepts a link to another site that answers 429
+# (docs-kit/lychee.toml).
+#
+# A reusable workflow cannot see whether the pull request of its caller is a
+# draft. A caller that skips drafts puts
+# `if: ${{ !github.event.pull_request.draft }}` on the job that calls this
+# workflow.
+#
+# Do not call this workflow from `pull_request_target` or `workflow_run`.
+# markdownlint-cli2 loads the files `.markdownlint-cli2.{cjs,mjs}` of the
+# checked tree and runs them as JavaScript. On the event `pull_request` the code
+# of a fork runs with a read-only token and no secrets. On the other two events
+# it would run with the secrets and the token of the base repository.
+#
+# The job token has two uses, and no step holds it longer than it needs:
+# `nix build` reads it as `access-tokens` (the rate limit of the downloads of
+# GitHub), and the online link check reads it as GITHUB_TOKEN. The step that
+# installs Nix gets none, so that no token stays in `~/.netrc` or in the Nix
+# configuration, and the offline check, which runs code of the checked tree, has
+# none in its environment.
+#
+# The caller needs `contents: read`. Its documents must hold every file that a
+# document links to, so the job checks out the whole commit.
+on:
+  workflow_call:
+    inputs:
+      sha:
+        description: >-
+          The full 40-character SHA of the commit of the calling repository to check.
+          Empty: the commit of the event that started the caller.
+        type: string
+        default: ""
+      runs-on:
+        description: >-
+          The runner, as JSON: one label in quotes, or an array of labels. A public
+          repository always runs on GitHub-hosted runners, whatever this input says.
+        type: string
+        default: '"ubuntu-24.04"'
+      timeout-minutes:
+        description: The time limit of the job.
+        type: number
+        default: 15
+      templates:
+        description: >-
+          Bash patterns for the templates of the repository, one for each line,
+          for the paths relative to the root of the repository (docs-check
+          --template). Vale and lychee skip these files; markdownlint-cli2
+          checks them with the rule MD041 (the first line is a level-1 heading)
+          off, and the `ignores` key of the `.markdownlint-cli2.yaml` of the
+          repository still applies. The templates in the locations that GitHub
+          reads need no pattern.
+        type: string
+        default: ""
+      external-links:
+        description: >-
+          Also request the links to other sites. Off by default, because a page
+          of another site that moves fails every pull request of the caller.
+        type: boolean
+        default: false
+    outputs:
+      external-links-status:
+        description: >-
+          The exit status of the check of the links to other sites: 0 when the
+          links work, 1 when a link is broken, 2 when the check could not run.
+          Empty when the check did not start, because an earlier step failed, or
+          because the input external-links is off.
+        value: ${{ jobs.docs.outputs.external-links-status }}
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  docs:
+    name: Docs check
+    # Self-hosted runners only for a private repository: a public repository's pull
+    # requests come from forks, and code from a fork must never run on a
+    # self-hosted runner.
+    runs-on: ${{ github.event.repository.private && fromJSON(inputs.runs-on) || 'ubuntu-24.04' }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    outputs:
+      external-links-status: ${{ steps.external-links.outputs.status }}
+    steps:
+      - name: Check the commit SHA
+        if: ${{ inputs.sha != '' }}
+        env:
+          SHA: ${{ inputs.sha }}
+        run: |
+          if [[ ! "${SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Input sha must be a full 40-character commit SHA, not '${SHA}'."
+            exit 1
+          fi
+
+      - name: Check out the commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      # The organization's self-hosted runners have Nix; a GitHub-hosted runner does not.
+      # An empty `github_access_token` keeps the job token out of `~/.netrc` and
+      # the Nix configuration.
+      - name: Install Nix
+        if: runner.environment == 'github-hosted'
+        uses: nixbuild/nix-quick-install-action@9f63be77f412a248c9d9a65a4c82cf066cdf8f0c # v35
+        with:
+          github_access_token: ""
+
+      # The kit at the commit of this workflow file: `job.workflow_repository` and
+      # `job.workflow_sha` name the repository and the commit of the file that
+      # defines the job, not those of the caller.
+      - name: Build the docs check
+        id: kit
+        env:
+          DOCS_KIT: github:${{ job.workflow_repository }}/${{ job.workflow_sha }}?dir=docs-kit
+          NIX_CONFIG: access-tokens = github.com=${{ github.token }}
+        run: |
+          docs_check="$(nix build --no-link --print-out-paths "${DOCS_KIT}#docs-check")"
+          echo "program=${docs_check}/bin/docs-check" >> "${GITHUB_OUTPUT}"
+
+      # This step has no token in its environment: the check runs code of the
+      # checked tree (see the header).
+      - name: Run the docs check
+        env:
+          DOCS_CHECK: ${{ steps.kit.outputs.program }}
+          DOCS_CHECK_TEMPLATES: ${{ inputs.templates }}
+        run: |
+          "${DOCS_CHECK}" .
+
+      - name: Restore the link cache
+        if: ${{ inputs.external-links }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lycheecache
+          key: cache-lychee-${{ github.sha }}
+          restore-keys: cache-lychee-
+
+      # `--online` runs lychee only, so no code of the checked tree runs in this
+      # step, which has the token. The step records the exit status of docs-check
+      # in its output, so that a caller can tell a broken link (1) from a failure
+      # of the setup, and then ends with that status.
+      - name: Check the links to other sites
+        id: external-links
+        if: ${{ inputs.external-links }}
+        env:
+          DOCS_CHECK: ${{ steps.kit.outputs.program }}
+          DOCS_CHECK_TEMPLATES: ${{ inputs.templates }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          status=0
+          "${DOCS_CHECK}" --online . || status=$?
+          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+          exit "${status}"
+
+      # The cache is saved when the check fails too: the links that worked in
+      # this run need no request in the next one.
+      - name: Save the link cache
+        if: ${{ always() && inputs.external-links }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .lycheecache
+          key: cache-lychee-${{ github.sha }}

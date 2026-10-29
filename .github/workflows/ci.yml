@@ -1,7 +1,11 @@
-# The gate of this repository: scripts/check.sh, the one list of the gate's
-# commands (flake.nix lists the checks). It runs on each system that the
-# toolchain supports, because the `version-line` check compares the versions
-# of the tool packages of its own system only. A draft pull request skips it
+# The gate of this repository has two jobs. `check` runs scripts/check.sh, the
+# one list of the gate's commands (flake.nix lists the checks), on each system
+# that the toolchain supports, because the `version-line` check compares the
+# versions of the tool packages of its own system only. It includes the docs
+# check, offline, in the build sandbox. `docs` calls the reusable workflow
+# docs.yml the way a caller does, and so it is the test of that workflow. The
+# links to other sites are not part of either job: the scheduled workflow
+# links.yml requests them. A draft pull request skips both jobs
 # (CONTRIBUTING.md, section 5).
 #
 # The job `ci` is the only status that a ruleset needs to require: it fails
@@ -114,9 +118,25 @@ jobs:
           done <<<"${names}"
           exit "${status}"
 
+  # The docs check of the docs kit for the documents of this repository, run
+  # through the reusable workflow as a caller runs it. The call asks for no
+  # check of the links to other sites (links.yml does). The call uses `./`, so
+  # the kit is the one of the commit under review. The `$/` form that the
+  # zizmor audit self-repository suggests is not valid for a reusable workflow
+  # call in actionlint 1.7.12, so the call carries an ignore. Remove it when
+  # actionlint accepts `$/`.
+  docs:
+    name: Docs
+    if: ${{ !github.event.pull_request.draft }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/docs.yml # zizmor: ignore[self-repository]
+    with:
+      templates: "docs-kit/templates/*"
+
   ci:
     name: ci
-    needs: [check]
+    needs: [check, docs]
     # Runs after a failure or a cancellation too. Without this, a failed job
     # would make this job skip, and GitHub counts a skipped required status as
     # passed.
