@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flake-check:
+    name: nix flake check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - run: nix flake check
+
+  # The hub runs its own reusable workflows, as a consumer does. The `./`
+  # form stays because actionlint doesn't yet accept the `$/` form that
+  # zizmor suggests. No job lints the workflows: the flake check does, because
+  # the treefmt module runs actionlint and zizmor.
+  secrets:
+    uses: ./.github/workflows/secrets.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+
+  docs:
+    uses: ./.github/workflows/docs.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+
+  # The one required status check. It fails unless every job it needs
+  # succeeded, so a skipped or cancelled job can't pass by omission.
+  ci:
+    name: ci
+    if: always()
+    needs: [flake-check, secrets, docs]
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require every needed job to succeed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: echo "$NEEDS" | jq -e 'all(.[]; .result == "success")'

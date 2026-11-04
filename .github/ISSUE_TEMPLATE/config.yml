@@ -1,0 +1,7 @@
+# Issue chooser of every repository that has no issue templates of its own.
+# The URL is absolute so that the link is the same in every repository.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/sealambda/.github/blob/main/SECURITY.md
+    about: Read how to report a vulnerability privately. Don't open a public issue.
