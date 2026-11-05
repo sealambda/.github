@@ -100,18 +100,45 @@ The hub offers `secrets.yml` and `docs.yml`. Each workflow runs its tools from
 the repository's flake. The comment at the top of the workflow file states what
 the flake must expose.
 
-1. Call the workflow from a job. Pin it to a commit SHA, which Renovate bumps.
-   The `runs-on` input is optional. It takes JSON.
+1. Get the full SHA of the current head of `main`:
+
+   ```sh
+   git ls-remote https://github.com/sealambda/.github refs/heads/main
+   ```
+
+   Alternatively, write `@main` once and merge the pin pull request that
+   Renovate opens.
+
+2. Call the workflow from a job. Pin it to the full 40-character commit SHA,
+   and write the branch in a comment. The `runs-on` input is optional. It takes
+   JSON.
 
    ```yaml
    jobs:
      docs:
-       uses: sealambda/.github/.github/workflows/docs.yml@<sha>
+       uses: sealambda/.github/.github/workflows/docs.yml@<40-hex-sha> # main
        permissions:
          contents: read
        with:
          runs-on: '["ubuntu-24.04-arm"]'
    ```
 
-2. List the job in the `needs` of the repository's `ci` job, as the hub's
+3. List the job in the `needs` of the repository's `ci` job, as the hub's
    `.github/workflows/ci.yml` does.
+
+Renovate reads the comment and bumps the SHA when `main` moves. The
+[preset](../reference/renovate-preset.md#timing) skips the release-age wait
+for these updates.
+
+Pin by SHA, not by `@main`, for these reasons:
+
+- A SHA works when a repository requires actions to be pinned to a full-length
+  commit SHA. GitHub states that a reusable workflow can still be referenced
+  by tag under that policy. It doesn't document the branch form.
+- Renovate keeps the SHA current.
+- A caller runs a known version, and a change to `main` reaches it only
+  through a reviewed pull request.
+
+GitHub doesn't document whether the `job_workflow_ref` claim of the OpenID
+Connect token names the SHA or `refs/heads/main` for a call by SHA. Don't write
+a trust policy that depends on either form.

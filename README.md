@@ -28,7 +28,12 @@ and keeps its own facts.
   `sync-config` app copies the files, and the `config-in-sync` check fails
   when a copy differs.
 - **CI building blocks.** The reusable workflows `secrets.yml` (gitleaks) and
-  `docs.yml` (markdownlint-cli2, lychee and Vale).
+  `docs.yml` (markdownlint-cli2, lychee and Vale). A caller pins a workflow by
+  its full commit SHA with the branch in a comment, for example
+  `uses: sealambda/.github/.github/workflows/secrets.yml@<40-hex-sha> # main`.
+  The SHA works under a policy that requires pinned actions, Renovate keeps it
+  current, and the caller tests a known version
+  ([how to call the workflows](docs/how-to/adopt-the-hub.md#call-the-reusable-workflows)).
 
 ## Documentation
 
