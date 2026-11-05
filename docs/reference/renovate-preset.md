@@ -37,6 +37,13 @@ input that follows a Git ref, because none has a release date. The age check
 stays pending for them and Renovate never creates the branch, so two rules
 set `minimumReleaseAge` to `null` for these updates.
 
+The digests of the hub's own reusable workflows skip the wait. For a call that
+pins `sealambda/.github` by SHA with `# main`, Renovate dates a digest update by
+the commit date of the new head of `main`. A held update would starve while the
+hub gets a commit more often than every 7 days. The organization reviews every
+change to `main`, so the wait adds no safety. The rule covers only the hub, not
+other digests.
+
 A repository that runs Renovate once a day needs a window of several hours,
 because Renovate acts only when a run falls inside the window. A repository
 that wants no window sets `schedule` to `["* * * * *"]`.
@@ -46,6 +53,7 @@ that wants no window sets `schedule` to `["* * * * *"]`.
 | Rule | Reason |
 | ---- | ------ |
 | Packages from the npm registry, which pnpm installs from, wait 7 days. | `config:best-practices` shortens the wait for that registry to 3 days. |
+| The digests of the `sealambda/.github` reusable workflows skip the 7-day wait. | The organization reviews every change to `main`, and a held update would starve while `main` moves weekly. |
 | Development dependencies keep their declared range. | `config:best-practices` pins them to one version. The lock file already fixes the resolved version. |
 | One pull request for the Mix minor and patch versions. | Fewer pull requests and fewer deployments. |
 | One pull request for the pnpm minor and patch versions. | The same. |
