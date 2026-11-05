@@ -39,6 +39,13 @@
       "minimumReleaseAge": null
     },
     {
+      "description": "The organization's own reusable workflows follow main without the release-age wait. The organization reviews every change to main, and a held digest update would starve while main moves weekly.",
+      "matchPackageNames": ["sealambda/.github"],
+      "matchDepTypes": ["workflow"],
+      "matchUpdateTypes": ["digest", "pinDigest"],
+      "minimumReleaseAge": null
+    },
+    {
       "description": "A development dependency keeps the range that its manifest declares. config:best-practices pins it to one version, and the lock file already fixes the resolved version.",
       "matchDepTypes": ["devDependencies", "dev-dependencies", "dev"],
       "rangeStrategy": "auto"
