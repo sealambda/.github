@@ -308,6 +308,16 @@
         docs = mkDocsCheck pkgs self;
         formatting = treefmtFor.${pkgs.stdenv.hostPlatform.system}.config.build.check self;
 
+        # Renovate's own validator reads both files offline. `--strict` also
+        # fails on a deprecated or migrated option, and `--no-global` rejects an
+        # option that only a global configuration may hold.
+        renovate-config = pkgs.runCommand "renovate-config" { nativeBuildInputs = [ pkgs.renovate ]; } ''
+          export HOME="$TMPDIR"
+          cd ${self}
+          renovate-config-validator --strict --no-global default.json renovate.json
+          touch "$out"
+        '';
+
         # `nix flake check` does not build an app, so this builds `apps.sync-config`.
         sync-config = mkSyncConfig pkgs;
       });
