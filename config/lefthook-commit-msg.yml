@@ -1,0 +1,22 @@
+# The commit-msg hook of the organization, shared through `sync-config`. A
+# repository's `lefthook.yml` loads this file with `extends`. The hook checks a
+# commit message before Git makes the commit. The pull request repeats the
+# checks in the reusable workflow `change-text.yml`, so nothing here is the only
+# check of anything. Each command runs in the `docs` dev shell, which has the
+# pinned commitlint and Vale. The repository provides that shell, as the section
+# "Sync the tool configuration" of docs/how-to/adopt-the-hub.md shows. The hook
+# never changes the message: fix the message and commit again.
+#
+# {1} is the path of the message file. Git adds `#` comment lines to that file,
+# and `git commit -v` adds the diff below a scissors line. commitlint strips
+# both itself. For Vale, which reads the message on stdin as the Markdown file
+# COMMIT_EDITMSG (see the commit section of `.vale.ini`), `sed` cuts the file
+# at the scissors line and `git stripspace --strip-comments` strips the
+# comment lines. The cut assumes the default comment character `#`.
+commit-msg:
+  parallel: true
+  commands:
+    commitlint:
+      run: nix develop .#docs -c commitlint --edit {1}
+    vale:
+      run: sed '/^# -* >8 -*$/,$d' {1} | git stripspace --strip-comments | nix develop .#docs -c vale --ext=.md --path=COMMIT_EDITMSG

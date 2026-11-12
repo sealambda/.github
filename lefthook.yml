@@ -1,0 +1,15 @@
+# Git hooks of this repository. The commit-msg hook is the organization's
+# shared file, which `sync-config` copies from `config/`. Install the hooks once
+# per clone with `lefthook install` inside `nix develop`.
+#
+# The pre-commit hook runs the formatter, as the `formatting` check does.
+# treefmt has no dry run: it rewrites an unformatted file, and
+# `--fail-on-change` then fails the commit. Stage the rewritten file and commit
+# again. A misspelling also fails the commit, and no file is rewritten.
+extends:
+  - lefthook-commit-msg.yml
+
+pre-commit:
+  commands:
+    format:
+      run: nix fmt -- --fail-on-change

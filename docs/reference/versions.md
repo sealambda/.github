@@ -12,8 +12,10 @@ shell is `base`.
 | Shell    | Package              | nixpkgs attribute                     |
 | -------- | -------------------- | ------------------------------------- |
 | `base`   | actionlint           | `actionlint`                          |
+| `base`   | commitlint           | `commitlint`                          |
 | `base`   | git                  | `git`                                 |
 | `base`   | gitleaks             | `gitleaks`                            |
+| `base`   | lefthook             | `lefthook`                            |
 | `base`   | zizmor               | `zizmor`                              |
 | `elixir` | Erlang/OTP 29        | `beam.packages.erlang_29.erlang`      |
 | `elixir` | Elixir 1.20          | `beam.packages.erlang_29.elixir_1_20` |

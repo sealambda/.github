@@ -119,10 +119,12 @@
       # hub's copy. `sync-config` writes the copies and `mkConfigCheck`
       # compares them.
       configFiles = {
+        ".commitlintrc.yaml" = ./config/commitlintrc.yaml;
         ".editorconfig" = ./config/editorconfig;
         ".markdownlint-cli2.yaml" = ./config/markdownlint-cli2.yaml;
         ".vale.ini" = ./config/vale.ini;
         ".vale/styles/config/vocabularies/Sealambda/accept.txt" = ./config/vale-vocabulary.txt;
+        "lefthook-commit-msg.yml" = ./config/lefthook-commit-msg.yml;
         "lychee.toml" = ./config/lychee.toml;
       };
 
@@ -263,12 +265,18 @@
       # Version policy: a toolchain version is the name of a nixpkgs attribute
       # below. To move to a new major version, change the attribute name.
       devShells = eachSystem (pkgs: rec {
-        # Included in every other shell: git and the workflow and secret linters.
+        # Included in every other shell: git, the workflow and secret linters,
+        # and commitlint and lefthook for the commit-msg hook
+        # (`lefthook-commit-msg.yml`, which `lefthook.yml` extends). The hook
+        # runs in the `docs` shell, which adds Vale. commitlint resolves
+        # `@commitlint/config-conventional` without a `node_modules`.
         base = pkgs.mkShell {
           packages = with pkgs; [
             actionlint
+            commitlint
             git
             gitleaks
+            lefthook
             zizmor
           ];
         };

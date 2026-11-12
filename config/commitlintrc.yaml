@@ -1,0 +1,7 @@
+# Commit message rules of every Sealambda repository: Conventional Commits.
+# https://commitlint.js.org/reference/configuration.html
+# The hub's dev shell provides commitlint from Nix, and commitlint resolves this
+# preset without a `node_modules` directory. The prose rules for a message are
+# in the commit section of `.vale.ini`.
+extends:
+  - "@commitlint/config-conventional"
