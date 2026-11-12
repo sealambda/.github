@@ -1,0 +1,26 @@
+# A page does not use a filler word (docs/reference/writing-style.md#filler-words).
+# The words in the tokens below add no fact, and the first one can read as
+# condescending.
+#
+# The match is whole-word in any letter case. The word "just" is not a token:
+# it has a true meaning about as often as it is a filler, as in "just short of",
+# and a word list cannot tell the two uses apart.
+# The first scope skips table cells and headings. The second scope covers the
+# doc comments of Elixir, where a scope with a negation never matches, so the
+# first scope alone misses them. Markdown files and the comments of the
+# languages that config/vale.ini maps to Markdown do not check code spans and
+# code blocks. The comments of the other languages have no code spans for
+# Vale, so it checks text in backticks too.
+# Level: error.
+extends: existence
+message: "Remove the filler word '%s'."
+link: https://github.com/sealambda/.github/blob/main/docs/reference/writing-style.md#filler-words
+level: error
+ignorecase: true
+scope:
+  - ~table.cell & ~heading
+  - text.comment.doc
+tokens:
+  - simply
+  - actually
+  - really

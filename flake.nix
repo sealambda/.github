@@ -28,6 +28,13 @@
       # Applies `f` to the package set of each supported system.
       eachSystem = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
 
+      # The hub's own package set for the system of the caller's `pkgs`. A check
+      # that builds its tools from this set, and not from the caller's `pkgs`,
+      # runs the same tool versions in every consumer, whatever nixpkgs the
+      # consumer follows. `mkConfigCheck` and `mkDocsCheck` use it. Only the
+      # system is taken from `pkgs`, so the call of a consumer keeps working.
+      hubPackagesFor = pkgs: nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+
       /**
         Evaluates the organization's treefmt module and returns the treefmt-nix
         evaluation. Use `.config.build.wrapper` as `formatter` and
@@ -56,17 +63,72 @@
 
       treefmtFor = eachSystem (pkgs: mkTreefmt pkgs [ ]);
 
+      # The Sealambda Vale style as a package with the layout of the styles in
+      # nixpkgs: `share/vale/styles/Sealambda`. `vale.withStyles` links it next
+      # to the styles of nixpkgs. The source is `vale/Sealambda`, because
+      # `.gitignore` hides the style directories under `.vale/styles`.
+      mkValeStyleSealambda =
+        pkgs:
+        pkgs.runCommand "vale-style-sealambda" { } ''
+          install -D -m 644 -t "$out/share/vale/styles/Sealambda" ${./vale/Sealambda}/*.yml
+        '';
+
+      /**
+        Builds the documentation tools from one package set: the three tools of
+        the `docs` dev shell and of `mkDocsCheck`. The Vale of these tools has
+        the style Google from nixpkgs and the hub's own style Sealambda.
+
+        # Inputs
+
+        `pkgs`
+        : The package set of one system. The hub's `docs` shell and
+          `mkDocsCheck` pass the hub's own package set.
+
+        # Type
+
+        ```
+        mkDocsTools :: AttrSet -> [Derivation]
+        ```
+      */
+      mkDocsTools =
+        pkgs:
+        let
+          # Vale and the styles that `BasedOnStyles` in `config/vale.ini` names:
+          # keep both lists the same. A style that `BasedOnStyles` names and
+          # `withStyles` lacks fails loudly, because Vale reports that the style
+          # is not on StylesPath. A style only in `withStyles` is never applied.
+          # The styles of nixpkgs are pinned by `flake.lock`, the style Sealambda
+          # is in this repository, and no run downloads a style. `withStyles`
+          # sets `VALE_STYLES_PATH` to its `share/vale/styles`, and Vale finds
+          # the styles there. The project `StylesPath` holds only the
+          # vocabularies. Vale ignores that variable when it runs with
+          # `--no-global`.
+          valeWithStyles = pkgs.vale.withStyles (styles: [
+            styles.google
+            (mkValeStyleSealambda pkgs)
+          ]);
+        in
+        [
+          pkgs.lychee
+          pkgs.markdownlint-cli2
+          valeWithStyles
+        ];
+
       # Tool configuration that a tool reads only from a file in the
       # repository. Each name is the path in the consumer; each value is the
       # hub's copy. `sync-config` writes the copies and `mkConfigCheck`
       # compares them.
       configFiles = {
         ".editorconfig" = ./config/editorconfig;
+        ".markdownlint-cli2.yaml" = ./config/markdownlint-cli2.yaml;
+        ".vale.ini" = ./config/vale.ini;
+        ".vale/styles/config/vocabularies/Sealambda/accept.txt" = ./config/vale-vocabulary.txt;
+        "lychee.toml" = ./config/lychee.toml;
       };
 
-      # Writes the copies into the current directory. `-m 644` makes each copy
-      # writable, because the source is read-only in the Nix store. `-D` creates
-      # the parent directories.
+      # Writes the copies into the current directory. `-m 644` gives each copy a
+      # plain file mode, because `install` makes a file executable by default.
+      # `-D` creates the parent directories.
       mkSyncConfig =
         pkgs:
         pkgs.writeShellApplication {
@@ -83,12 +145,14 @@
         Builds a check that fails when a synced tool configuration file of a
         repository differs from the hub's file or is missing. The failure
         message names the `sync-config` command that repairs it: the pinned hub
-        app of a calling repository, and the local app of the hub itself.
+        app of a calling repository, and the local app of the hub itself. Like
+        `mkDocsCheck`, the check builds with the hub's own package set, so it
+        runs the same tools in every consumer.
 
         # Inputs
 
         `pkgs`
-        : The package set of one system.
+        : The package set of one system. Only its system is used.
 
         `src`
         : The source tree to compare, normally the `self` of the calling flake.
@@ -101,7 +165,10 @@
       */
       mkConfigCheck =
         pkgs: src:
-        pkgs.runCommand "config-in-sync" { nativeBuildInputs = [ pkgs.diffutils ]; } ''
+        let
+          hubPkgs = hubPackagesFor pkgs;
+        in
+        hubPkgs.runCommand "config-in-sync" { nativeBuildInputs = [ hubPkgs.diffutils ]; } ''
           status=0
           ${nixpkgs.lib.concatStringsSep "\n" (
             nixpkgs.lib.mapAttrsToList (
@@ -116,10 +183,73 @@
           touch "$out"
           exit "$status"
         '';
+
+      /**
+        Builds a check that lints the Markdown files of a source tree with
+        markdownlint-cli2, lychee and Vale. It runs all three tools and fails at
+        the end when any of them reports a problem, so one run shows every
+        finding. The tools come from the hub's own nixpkgs, whatever nixpkgs the
+        calling flake uses: the function takes only the system from `pkgs`.
+        Every consumer then runs one version of each tool and of each Vale
+        style, so the same page gets the same result in every repository, and a
+        consumer needs no `nixpkgs.follows = "hub/nixpkgs"` for this check. A
+        bump of the hub in `flake.lock` updates the tools. Where the Nix sandbox
+        is enabled, which it always is on Linux CI, the check reads each tool's
+        configuration from `src` and no personal configuration of the user, and
+        it needs no network: lychee runs offline, the Vale styles are in the Nix
+        store, and the trust store that lychee loads at startup comes from Nix
+        too. The same command runs locally and in CI: `nix flake check`, or
+        `nix build .#checks.<system>.docs -L`. A local re-run on an unchanged
+        `src` reuses the result by the hash of `src`.
+
+        Pass the whole `self` of the calling flake, not a set of Markdown
+        files, because lychee also checks links to files that are not
+        Markdown. The calling repository needs the files that `sync-config`
+        writes, and the `Repository` Vale vocabulary.
+
+        # Inputs
+
+        `pkgs`
+        : The package set of one system. Only its system is used.
+
+        `src`
+        : The source tree to check, normally the `self` of the calling flake.
+
+        # Type
+
+        ```
+        mkDocsCheck :: AttrSet -> (Path | AttrSet) -> Derivation
+        ```
+      */
+      mkDocsCheck =
+        pkgs: src:
+        let
+          hubPkgs = hubPackagesFor pkgs;
+        in
+        hubPkgs.runCommand "docs"
+          {
+            nativeBuildInputs = mkDocsTools hubPkgs;
+            # The trust store that lychee needs at startup.
+            SSL_CERT_FILE = "${hubPkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+          }
+          ''
+            export HOME="$TMPDIR"
+            cd ${src}
+            status=0
+            markdownlint-cli2 "**/*.md" || status=1
+            lychee --no-progress "**/*.md" || status=1
+            vale --minAlertLevel=error . || status=1
+            touch "$out"
+            exit "$status"
+          '';
     in
     {
       lib = {
-        inherit mkTreefmt mkConfigCheck;
+        inherit
+          mkTreefmt
+          mkConfigCheck
+          mkDocsCheck
+          ;
       };
 
       apps = eachSystem (pkgs: {
@@ -156,12 +286,18 @@
           inputsFrom = [ base ];
           packages = [ pkgs.opentofu ];
         };
+
+        docs = pkgs.mkShell {
+          inputsFrom = [ base ];
+          packages = mkDocsTools pkgs;
+        };
       });
 
       formatter = eachSystem (pkgs: treefmtFor.${pkgs.stdenv.hostPlatform.system}.config.build.wrapper);
 
       checks = eachSystem (pkgs: {
         config-in-sync = mkConfigCheck pkgs self;
+        docs = mkDocsCheck pkgs self;
         formatting = treefmtFor.${pkgs.stdenv.hostPlatform.system}.config.build.check self;
 
         # `nix flake check` does not build an app, so this builds `apps.sync-config`.

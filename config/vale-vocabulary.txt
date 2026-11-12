@@ -1,0 +1,11 @@
+[Aa]ctionlint
+[Cc]ommitlint
+[Gg]itleaks
+[Ll]efthook
+[Nn]ixfmt
+[Nn]ixpkgs
+Sealambda
+[Ss]hellcheck
+[Ss]hfmt
+[Tt]reefmt
+[Zz]izmor

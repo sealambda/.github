@@ -1,0 +1,29 @@
+# A comment has sentences of at most 25 words
+# (docs/reference/writing-style.md#sentence-length). This rule is for the
+# languages that config/vale.ini maps to `r` and `hs`: shell, YAML, TOML,
+# Dockerfile and SQL. Vale gives their comments the scope `text.comment` and no
+# `sentence` scope, so the rule SentenceLength cannot count there. The Markdown
+# files and the languages that map to `md` use SentenceLength, and the file
+# sections of config/vale.ini turn this rule off for them.
+#
+# The pattern matches 26 words in a row. A word is a run of letters and digits
+# that can hold a dot, an apostrophe or a hyphen. These separate two words: a
+# space, a tab, a comma, a semicolon, a colon or a dash. A line break also
+# separates them, unless a blank line follows. A period ends the match, so the
+# pattern covers one sentence. Vale joins the comment lines of `r` and `hs`
+# before it matches. For Nix and HCL, Vale reads one line at a time, so the
+# sections of those languages turn the rule off.
+#
+# The rule is an approximation. A parenthesis, a quote, a backtick or a slash
+# ends the count, so some long sentences pass. The two word patterns are atomic
+# groups, `(?>...)`: they stop the matcher from trying every split of a long
+# token, which takes seconds for a token of thousands of characters.
+# Level: error.
+extends: existence
+message: "Split this sentence: it has more than 25 words."
+link: https://github.com/sealambda/.github/blob/main/docs/reference/writing-style.md#sentence-length
+level: error
+scope: text.comment
+nonword: true
+tokens:
+  - '(?:(?>\w+(?:[.''’-]\w+)*)(?:[ \t,;:–—]|\r?\n(?![ \t]*\r?\n))+){25}(?>\w+(?:[.''’-]\w+)*)'

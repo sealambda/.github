@@ -9,15 +9,20 @@ name of a nixpkgs attribute, and `flake.lock` pins one revision of
 Each shell except `base` includes `base` through `inputsFrom`. The `default`
 shell is `base`.
 
-| Shell    | Package       | nixpkgs attribute                     |
-| -------- | ------------- | ------------------------------------- |
-| `base`   | actionlint    | `actionlint`                          |
-| `base`   | git           | `git`                                 |
-| `base`   | gitleaks      | `gitleaks`                            |
-| `base`   | zizmor        | `zizmor`                              |
-| `elixir` | Erlang/OTP 29 | `beam.packages.erlang_29.erlang`      |
-| `elixir` | Elixir 1.20   | `beam.packages.erlang_29.elixir_1_20` |
-| `tofu`   | OpenTofu      | `opentofu`                            |
+| Shell    | Package              | nixpkgs attribute                     |
+| -------- | -------------------- | ------------------------------------- |
+| `base`   | actionlint           | `actionlint`                          |
+| `base`   | git                  | `git`                                 |
+| `base`   | gitleaks             | `gitleaks`                            |
+| `base`   | zizmor               | `zizmor`                              |
+| `elixir` | Erlang/OTP 29        | `beam.packages.erlang_29.erlang`      |
+| `elixir` | Elixir 1.20          | `beam.packages.erlang_29.elixir_1_20` |
+| `tofu`   | OpenTofu             | `opentofu`                            |
+| `docs`   | lychee               | `lychee`                              |
+| `docs`   | markdownlint-cli2    | `markdownlint-cli2`                   |
+| `docs`   | Vale                 | `vale`                                |
+| `docs`   | Vale style Google    | `valeStyles.google`                   |
+| `docs`   | Vale style Sealambda | The hub's `vale/Sealambda` folder     |
 
 ## Rules
 

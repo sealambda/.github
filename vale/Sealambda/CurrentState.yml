@@ -1,0 +1,31 @@
+# A page describes the system as it is on the main branch, not as a person plans
+# it (docs/reference/writing-style.md).
+#
+# The words are signs of a plan or a gap: they belong in an issue. The match
+# is case-insensitive and word-bounded. Code spans and code blocks are not
+# checked, so a flag in code font, such as `--phase 2`, does not match.
+# A true use of a listed word needs a Vale comment, with the reason in a
+# comment before it:
+#   <!-- vale Sealambda.CurrentState = NO -->
+#   ...the passage...
+#   <!-- vale Sealambda.CurrentState = YES -->
+# `config/vale.ini` turns the rule off for `docs/decisions/` and `docs/specs/`,
+# because a record states what a decision changes and a spec describes work
+# that is not built yet.
+# The words "target" and "planned" are not listed: they have a true present
+# meaning (a build target, a planned maintenance window) that a word list cannot
+# tell from a plan.
+# Level: error.
+extends: existence
+message: "'%s' describes a plan or a gap. Describe what is true today and link to an issue."
+link: https://github.com/sealambda/.github/blob/main/docs/reference/writing-style.md#current-state
+level: error
+ignorecase: true
+tokens:
+  - for now
+  - currently
+  - TODO
+  - FIXME
+  - in the future
+  - will be
+  - phase 2

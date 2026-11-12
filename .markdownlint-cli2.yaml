@@ -1,0 +1,11 @@
+# Markdown lint settings of every Sealambda repository.
+# https://github.com/DavidAnson/markdownlint-cli2
+# Pass the files to lint as arguments: markdownlint-cli2 "**/*.md"
+gitignore: true
+noInlineConfig: true
+
+config:
+  # Prettier owns the layout, so markdownlint keeps the structure rules.
+  extends: markdownlint/style/prettier
+  # Tables stay compact.
+  MD060: false
