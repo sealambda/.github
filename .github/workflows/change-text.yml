@@ -1,0 +1,77 @@
+name: Change text
+
+# Reusable workflow. It checks the text of a pull request against the rules of
+# CONTRIBUTING.md. commitlint checks the form of the commit messages and of the
+# title. Vale checks the prose of the commit messages, the title and the body
+# with the commit section of `.vale.ini`. Vale reads the text on stdin as
+# the Markdown file COMMIT_EDITMSG, as that section explains. The title and the
+# body come from `gh pr view` into files, and never into the script text,
+# because a person controls them. Vale skips a pull request from a bot, whose
+# standard text, such as Renovate's, does not follow the prose rules.
+#
+# Caller contract:
+# - Call it from a job that runs for a `pull_request` event only. The job reads
+#   the title and the body when it runs, so re-run it after an edit of either.
+# - Grant `contents: read` and `pull-requests: read`. The runner must have `gh`
+#   and `jq`, which the GitHub-hosted Ubuntu runners have.
+# - Expose commitlint and Vale in the `docs` dev shell of the flake, for example
+#   `inputsFrom = [ hub.devShells.<system>.docs ]`. The caller's `flake.lock`
+#   pins the tool versions. The caller also holds the files that `sync-config`
+#   writes and the `Repository` Vale vocabulary, as the section "Sync the tool
+#   configuration" of docs/how-to/adopt-the-hub.md says.
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: >-
+          JSON for the `runs-on` key, as a string. Quote it under `with:`, for
+          example '"ubuntu-latest"' or '["ubuntu-24.04-arm"]'.
+        type: string
+        default: '"ubuntu-latest"'
+
+permissions: {}
+
+jobs:
+  change-text:
+    name: commit and pull request text
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read # `gh pr view` reads the title and the body.
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      # Only this step gets the token as an environment variable. The Nix install
+      # action also writes the job token into `/etc/nix/nix.conf` as an access
+      # token, so code in the flake of a pull request, which `nix develop`
+      # evaluates, can read it. The token is read-only (`contents: read` and
+      # `pull-requests: read`) and belongs to the calling repository.
+      - name: Read the pull request title and body
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr view "$PR_NUMBER" --json title,body > "$RUNNER_TEMP/pull-request.json"
+          jq -r .title "$RUNNER_TEMP/pull-request.json" | tr -d '\r' > "$RUNNER_TEMP/title.txt"
+          jq -r '.title + "\n\n" + (.body // "")' "$RUNNER_TEMP/pull-request.json" | tr -d '\r' > "$RUNNER_TEMP/text.txt"
+      - name: Check the form of the commit messages
+        run: nix develop .#docs -c commitlint --from "$BASE_SHA" --to "$HEAD_SHA"
+      - name: Check the form of the pull request title
+        run: nix develop .#docs -c commitlint < "$RUNNER_TEMP/title.txt"
+      - name: Check the prose of the commit messages
+        if: github.event.pull_request.user.type != 'Bot'
+        shell: bash
+        run: git log --no-merges --format=%B "$BASE_SHA..$HEAD_SHA" | nix develop .#docs -c vale --ext=.md --path=COMMIT_EDITMSG
+      - name: Check the prose of the pull request title and body
+        if: github.event.pull_request.user.type != 'Bot'
+        run: nix develop .#docs -c vale --ext=.md --path=COMMIT_EDITMSG < "$RUNNER_TEMP/text.txt"

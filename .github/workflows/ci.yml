@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  flake-check:
+    name: nix flake check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+      - run: nix flake check
+
+  # The secrets scan stays a workflow because gitleaks needs the Git history,
+  # and the flake check sees none. No job lints the workflows or the
+  # documentation: where the flake defines those checks, the flake check runs
+  # them. A consumer repository calls the reusable workflows as
+  # `sealambda/.github/.github/workflows/<file>@<sha> # main`. Only the hub
+  # uses the `./` form, because actionlint does not yet accept the `$/` form
+  # that zizmor suggests.
+  secrets:
+    uses: ./.github/workflows/secrets.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+
+  # The text of the pull request follows the rules of CONTRIBUTING.md. The
+  # reusable workflow checks it, and it runs for a pull request only. The
+  # aggregate job below accepts that skip on a push.
+  change-text:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/change-text.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pull-requests: read # The called workflow reads the title and the body.
+
+  # The one required status check. It fails unless every job it needs
+  # succeeded, so a skipped or cancelled job cannot pass by omission. Only
+  # `change-text` may be skipped, and only on a push, because it runs for a pull
+  # request only. A skip on a pull request fails.
+  ci:
+    name: ci
+    if: always()
+    needs: [flake-check, secrets, change-text]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every needed job to succeed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: >-
+          echo "$NEEDS" | jq -e --arg event "$EVENT_NAME"
+          'to_entries | all(.[]; .value.result == "success"
+          or (.key == "change-text" and .value.result == "skipped" and $event == "push"))'

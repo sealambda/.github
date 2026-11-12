@@ -262,6 +262,14 @@
         };
       });
 
+      # The scanner of the reusable workflow `secrets.yml`: the gitleaks of the
+      # pinned nixpkgs, without a wrapper. The workflow runs it from this flake
+      # at the commit of the workflow file, so the scanner never comes from the
+      # repository that it scans.
+      packages = eachSystem (pkgs: {
+        inherit (pkgs) gitleaks;
+      });
+
       # Version policy: a toolchain version is the name of a nixpkgs attribute
       # below. To move to a new major version, change the attribute name.
       devShells = eachSystem (pkgs: rec {

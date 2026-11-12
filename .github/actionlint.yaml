@@ -1,0 +1,8 @@
+# The `job` context has the properties `workflow_repository` and `workflow_sha`
+# in GitHub's documentation. This actionlint does not know them yet. The
+# pattern below hides only this one message, and only for the one workflow that
+# reads them to find its own source.
+paths:
+  .github/workflows/secrets.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'
