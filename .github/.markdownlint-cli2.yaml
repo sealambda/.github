@@ -1,0 +1,6 @@
+# Applies to the files under .github only, and merges with the settings of
+# the repository root:
+# https://github.com/DavidAnson/markdownlint-cli2#configuration
+config:
+  # The pull request template starts with a section label, not a heading.
+  MD041: false
