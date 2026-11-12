@@ -9,3 +9,7 @@ indent_style = space
 indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
+
+# make requires a tab at the start of a recipe line.
+[Makefile]
+indent_style = tab
