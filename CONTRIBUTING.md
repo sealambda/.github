@@ -54,7 +54,9 @@ Assisted-by: <tool> (<model>)
 
 ## Review and landing
 
-- A maintainer who did not commit to the pull request approves it.
+- Every change goes through a pull request and its checks. No approval is
+  required while the maintainers are the whole team. An author asks for a review
+  when they want one.
 - Fix review findings with fixup commits. Fold them in before landing with
   `git rebase -i --autosquash`.
 - Land with **Rebase and merge**. `main` stays linear. Nobody pushes to `main`.
