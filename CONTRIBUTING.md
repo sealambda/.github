@@ -63,7 +63,9 @@ Assisted-by: <tool> (<model>)
 ## Dependencies
 
 [Renovate](https://docs.renovatebot.com/) is the only dependency updater. Commit
-lock files. Do not write update scripts.
+lock files. Do not write update scripts. A Renovate `postUpgradeTasks` command
+may only sync a pinned value, such as a version file, to what the update
+installed.
 
 ## Documentation
 
@@ -119,8 +121,9 @@ defines the format of a record and of the ledger. These rules apply:
 An agent follows this guide and these rules:
 
 - Never push to `main`. Never merge a pull request unless a person asks. This
-  rule does not cover the Renovate merge of a security fix inside the declared
-  range.
+  rule does not cover a Renovate pull request that the repository's Renovate
+  configuration marks `automerge`. Renovate merges it, and no person needs to
+  ask.
 - Open pull requests as drafts.
 - Disclose AI help with the `Assisted-by` trailer.
 - Read a repository's `AGENTS.md` for its commands.
